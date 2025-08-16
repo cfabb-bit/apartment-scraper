@@ -1,300 +1,290 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 
-async function scrapeImmobilien() {
-    console.log('Starting apartment scraping...');
+async function scrapeApartments() {
+    console.log('Starting apartment scraping from stadtundland.de...');
     
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     
     try {
-        const url = 'https://www.immobilien.de/mieten/berlin';
-        console.log('Processing URL:', url);
+        const url = 'https://stadtundland.de/wohnungssuche?district=all&maxRate=450';
+        console.log('Processing:', url);
 
         // Navigate to page
         await page.goto(url, { waitUntil: 'networkidle' });
         console.log('Page loaded');
 
-        // Wait for page to load
-        await page.waitForSelector('body', { timeout: 30000 });
-        console.log('Page body loaded');
-
-        // Handle cookie banner
-        const cookieSelectors = [
-            '#uc-btn-accept-banner',
-            'button[data-testid="uc-accept-all-button"]',
-            '.uc-btn-accept-banner',
-            'button[aria-label*="akzeptieren"]',
-            'button[title*="akzeptieren"]',
-            '.cookie-consent button',
-            '#cookie-consent-accept',
-            '.gdpr-accept',
-            '.consent-accept',
-            '[data-cy="accept-all"]',
-            '[data-testid="accept-all"]'
-        ];
-
-        let cookieHandled = false;
-        for (const selector of cookieSelectors) {
-            try {
-                await page.waitForSelector(selector, { timeout: 2000 });
-                await page.click(selector);
-                console.log(`Cookie banner accepted with selector: ${selector}`);
-                await page.waitForTimeout(2000);
-                cookieHandled = true;
-                break;
-            } catch (e) {
-                // Continue to next selector
-            }
-        }
-
-        // Alternative approach: click any button containing "akzeptieren"
-        if (!cookieHandled) {
-            try {
-                await page.evaluate(() => {
-                    const buttons = Array.from(document.querySelectorAll('button'));
-                    const acceptButton = buttons.find(btn =>
-                        btn.textContent.toLowerCase().includes('akzeptieren') ||
-                        btn.textContent.toLowerCase().includes('alle') ||
-                        btn.textContent.toLowerCase().includes('accept')
-                    );
-                    if (acceptButton) {
-                        acceptButton.click();
-                        return true;
-                    }
-                    return false;
-                });
-                console.log('Cookie banner handled via text search');
-                await page.waitForTimeout(2000);
-            } catch (e) {
-                console.log('No cookie banner found');
-            }
-        }
-
-        // Wait for content to load
-        await page.waitForTimeout(5000);
-
-        // Scroll to load more results
+        // Wait for page load
+        await page.waitForTimeout(8000);
+        
+        // Scroll to trigger lazy loading
         await page.evaluate(() => {
-            return new Promise((resolve) => {
-                let totalHeight = 0;
-                const distance = 300;
-                const maxScrolls = 10;
-                let scrollCount = 0;
-
-                const timer = setInterval(() => {
-                    const scrollHeight = document.body.scrollHeight;
-                    window.scrollBy(0, distance);
-                    totalHeight += distance;
-                    scrollCount++;
-
-                    if (totalHeight >= scrollHeight || scrollCount >= maxScrolls) {
-                        clearInterval(timer);
-                        resolve();
-                    }
-                }, 800);
-            });
+            window.scrollTo(0, document.body.scrollHeight);
         });
-
         await page.waitForTimeout(3000);
+        
         console.log('Page preparation completed, extracting data...');
 
         // Extract apartment data
         const apartments = await page.evaluate(() => {
-            const results = [];
-            console.log('Starting apartment extraction');
-
-            // Strategy 1: Find elements with specific text patterns
-            const allElements = Array.from(document.querySelectorAll('*'));
-            const propertyElements = [];
-
-            // Look for elements containing price and size indicators
-            allElements.forEach(el => {
-                const text = el.textContent || '';
-                const hasPrice = /\d+\s*€/.test(text);
-                const hasSize = /\d+\s*m²/.test(text);
-                const hasRooms = /\d+\s*(zimmer|zi\.)/i.test(text);
-
-                // Element should contain price or size info and not be too nested
-                if ((hasPrice || hasSize || hasRooms) &&
-                    text.length > 30 && text.length < 2000 &&
-                    el.children.length < 30) {
-
-                    // Avoid duplicates by checking if parent is already included
-                    const hasParentInList = propertyElements.some(existing =>
-                        existing.contains(el) || el.contains(existing)
-                    );
-
-                    if (!hasParentInList) {
-                        propertyElements.push(el);
-                    }
+            try {
+                console.log('=== INIZIO ESTRAZIONE - v5-ERROR-SAFE ===');
+                
+                const results = [];
+                
+                // STEP 1: Analisi base della pagina
+                try {
+                    const bodyText = document.body.textContent;
+                    console.log(`Lunghezza testo pagina: ${bodyText.length}`);
+                    console.log(`Contiene "€": ${bodyText.includes('€')}`);
+                    console.log(`Contiene "m²": ${bodyText.includes('m²')}`);
+                    console.log(`Contiene "Zimmer": ${bodyText.includes('Zimmer')}`);
+                } catch (e) {
+                    console.log(`Errore analisi pagina: ${e.message}`);
                 }
-            });
-
-            console.log(`Found ${propertyElements.length} potential property elements`);
-
-            // Strategy 2: If no elements found, try common selectors
-            if (propertyElements.length === 0) {
-                const commonSelectors = [
-                    '[class*="result"]',
-                    '[class*="property"]',
-                    '[class*="listing"]',
-                    '[class*="item"]',
-                    '[class*="card"]',
-                    'article',
-                    '[data-testid*="property"]',
-                    '[data-testid*="result"]'
-                ];
-
-                for (const selector of commonSelectors) {
-                    const elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) {
-                        elements.forEach(el => {
-                            const text = el.textContent || '';
-                            if (text.includes('€') && text.length > 50) {
-                                propertyElements.push(el);
+                
+                // STEP 2: Trova TUTTI i link
+                let allValidLinks = [];
+                try {
+                    const allLinks = document.querySelectorAll('a[href]');
+                    console.log(`Totale link nella pagina: ${allLinks.length}`);
+                    
+                    Array.from(allLinks).forEach((linkEl, i) => {
+                        try {
+                            const href = linkEl.href;
+                            if (href && href.includes('/wohnungssuche/')) {
+                                console.log(`Link ${i + 1}: ${href}`);
+                                
+                                // Verifica pattern più flessibile
+                                if (href.match(/\/wohnungssuche\/\d+/) && href.includes('%2F')) {
+                                    const rect = linkEl.getBoundingClientRect();
+                                    allValidLinks.push({
+                                        href: href,
+                                        element: linkEl,
+                                        position: rect.top + window.scrollY,
+                                        text: linkEl.textContent ? linkEl.textContent.trim() : '',
+                                        used: false
+                                    });
+                                    console.log(`  -> LINK VALIDO AGGIUNTO`);
+                                }
+                            }
+                        } catch (e) {
+                            console.log(`Errore processando link ${i}: ${e.message}`);
+                        }
+                    });
+                    
+                    console.log(`Link validi trovati: ${allValidLinks.length}`);
+                    allValidLinks.forEach((link, i) => {
+                        console.log(`${i + 1}. ${link.href} - "${link.text.substring(0, 50)}"`);
+                    });
+                    
+                } catch (e) {
+                    console.log(`Errore ricerca link: ${e.message}`);
+                }
+                
+                // STEP 3: Trova appartamenti con approccio semplice e robusto
+                const apartments = [];
+                try {
+                    // Strategia semplice: trova tutti gli elementi che contengono le info base
+                    const allElements = document.querySelectorAll('*');
+                    console.log(`Totale elementi nella pagina: ${allElements.length}`);
+                    
+                    let candidateCount = 0;
+                    Array.from(allElements).forEach((el, i) => {
+                        try {
+                            const text = el.textContent;
+                            if (!text || text.length < 20 || text.length > 2000) return;
+                            
+                            // Deve avere almeno prezzo e metratura
+                            const hasPrice = /\d+[,.]?\d*\s*€/.test(text);
+                            const hasSize = /\d+[,.]?\d*\s*m²/.test(text);
+                            
+                            if (hasPrice && hasSize) {
+                                candidateCount++;
+                                if (candidateCount <= 20) { // Limita per evitare troppi log
+                                    console.log(`\nCandidato ${candidateCount} (elemento ${i}):`);
+                                    console.log(`Tag: ${el.tagName}, Classe: ${el.className}`);
+                                    console.log(`Testo: ${text.substring(0, 150).replace(/\n/g, ' ')}...`);
+                                }
+                                
+                                // Estrai dati
+                                const priceMatch = text.match(/(\d+[,.]?\d*)\s*€/);
+                                const sizeMatch = text.match(/(\d+[,.]?\d*)\s*m²/);
+                                const roomMatch = text.match(/(\d+[,.]?\d*)\s*[Zz]immer/);
+                                
+                                if (priceMatch && sizeMatch) {
+                                    const rect = el.getBoundingClientRect();
+                                    const apartment = {
+                                        price: priceMatch[0],
+                                        size: sizeMatch[0],
+                                        rooms: roomMatch ? roomMatch[0] : 'N/A',
+                                        position: rect.top + window.scrollY,
+                                        container: el,
+                                        title: '',
+                                        fullText: text.substring(0, 300),
+                                        link: null
+                                    };
+                                    
+                                    // Estrai titolo semplice
+                                    const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 5);
+                                    for (const line of lines.slice(0, 5)) {
+                                        if (line.length > 10 && line.length < 100 &&
+                                            (line.toLowerCase().includes('berlin') || 
+                                             line.includes('Str.') || 
+                                             line.includes('str.') ||
+                                             line.includes('Chaussee'))) {
+                                            apartment.title = line;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (!apartment.title && lines.length > 0) {
+                                        apartment.title = lines[0].substring(0, 80);
+                                    }
+                                    
+                                    apartments.push(apartment);
+                                    console.log(`  -> APPARTAMENTO AGGIUNTO: ${apartment.price}, ${apartment.size}`);
+                                }
+                            }
+                        } catch (e) {
+                            // Ignora errori sui singoli elementi
+                        }
+                    });
+                    
+                    console.log(`\nAppartamenti candidati trovati: ${apartments.length}`);
+                    
+                } catch (e) {
+                    console.log(`Errore ricerca appartamenti: ${e.message}`);
+                }
+                
+                // STEP 4: Rimuovi duplicati semplici
+                const uniqueApartments = [];
+                const seen = new Set();
+                
+                apartments.forEach((apt, i) => {
+                    try {
+                        const key = `${apt.price}-${apt.size}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            uniqueApartments.push(apt);
+                            console.log(`Appartamento unico ${uniqueApartments.length}: ${apt.price}, ${apt.size}`);
+                        } else {
+                            console.log(`Duplicato rimosso: ${key}`);
+                        }
+                    } catch (e) {
+                        console.log(`Errore rimozione duplicati: ${e.message}`);
+                    }
+                });
+                
+                // STEP 5: Associa link con logica semplice
+                console.log(`\n=== ASSOCIAZIONE LINK ===`);
+                console.log(`Appartamenti unici: ${uniqueApartments.length}`);
+                console.log(`Link disponibili: ${allValidLinks.length}`);
+                
+                uniqueApartments.forEach((apartment, aptIndex) => {
+                    try {
+                        console.log(`\nAssociando appartamento ${aptIndex + 1}: ${apartment.price} - ${apartment.size}`);
+                        console.log(`Posizione appartamento: ${apartment.position}px`);
+                        
+                        let bestLink = null;
+                        let bestDistance = Infinity;
+                        
+                        // Prova prima a trovare link nel contenitore o vicino
+                        allValidLinks.forEach((link, linkIndex) => {
+                            if (link.used) return;
+                            
+                            try {
+                                let score = 0;
+                                
+                                // Controlla se il link è contenuto nell'appartamento
+                                if (apartment.container.contains(link.element)) {
+                                    score = 1000000; // Priorità massima
+                                    console.log(`  Link ${linkIndex + 1}: CONTENUTO DIRETTO (score: ${score})`);
+                                } else {
+                                    // Controlla distanza
+                                    const distance = Math.abs(apartment.position - link.position);
+                                    score = Math.max(0, 1000 - distance);
+                                    console.log(`  Link ${linkIndex + 1}: distanza ${distance}px (score: ${score})`);
+                                }
+                                
+                                if (score > 0 && (!bestLink || score > bestDistance)) {
+                                    bestLink = link;
+                                    bestDistance = score;
+                                    console.log(`    -> NUOVO MIGLIOR LINK (score: ${score})`);
+                                }
+                                
+                            } catch (e) {
+                                console.log(`  Errore valutando link ${linkIndex}: ${e.message}`);
                             }
                         });
-                        if (propertyElements.length > 0) {
-                            console.log(`Using selector: ${selector}, found ${propertyElements.length} elements`);
-                            break;
+                        
+                        if (bestLink) {
+                            apartment.link = bestLink.href;
+                            bestLink.used = true;
+                            console.log(`  ✓ ASSEGNATO: ${bestLink.href}`);
+                        } else {
+                            console.log(`  ✗ NESSUN LINK TROVATO`);
+                            
+                            // Fallback: assegna primo link disponibile se esistente
+                            const availableLink = allValidLinks.find(l => !l.used);
+                            if (availableLink) {
+                                apartment.link = availableLink.href;
+                                availableLink.used = true;
+                                console.log(`  📌 LINK FALLBACK ASSEGNATO: ${availableLink.href}`);
+                            }
                         }
+                        
+                    } catch (e) {
+                        console.log(`Errore associazione appartamento ${aptIndex}: ${e.message}`);
                     }
-                }
+                });
+                
+                // STEP 6: Report finale
+                console.log(`\n=== RISULTATO FINALE ===`);
+                uniqueApartments.forEach((apt, i) => {
+                    console.log(`${i + 1}. ${apt.price} - ${apt.size} - "${apt.title.substring(0, 50)}"`);
+                    console.log(`   Link: ${apt.link || 'NESSUNO'}`);
+                });
+                
+                console.log(`\nRiepilogo: ${uniqueApartments.length} appartamenti, ${uniqueApartments.filter(a => a.link).length} con link`);
+                
+                return uniqueApartments;
+                
+            } catch (e) {
+                console.log(`ERRORE GENERALE: ${e.message}`);
+                console.log(`Stack: ${e.stack}`);
+                return [];
             }
-
-            // Process each element
-            propertyElements.forEach((element, index) => {
-                try {
-                    const fullText = element.textContent || '';
-
-                    // Extract price
-                    let price = 'N/A';
-                    const priceMatch = fullText.match(/(\d{2,4}(?:[.,]\d{2})?)\s*€/);
-                    if (priceMatch) {
-                        price = priceMatch[1] + ' €';
-                    }
-
-                    // Extract size
-                    let size = 'N/A';
-                    const sizeMatch = fullText.match(/(\d{1,3}(?:[.,]\d+)?)\s*m²/);
-                    if (sizeMatch) {
-                        size = sizeMatch[0];
-                    }
-
-                    // Extract rooms
-                    let rooms = 'N/A';
-                    const roomsMatch = fullText.match(/(\d+(?:[.,]\d+)?)\s*(zimmer|zi\.)/i);
-                    if (roomsMatch) {
-                        rooms = roomsMatch[0];
-                    }
-
-                    // SKIP if this looks like a navigation/header/footer element
-                    if (fullText.length < 50 ||
-                        fullText.includes('Immobilien.de') ||
-                        fullText.includes('Suchen') ||
-                        fullText.includes('Filter') ||
-                        fullText.includes('Sortieren') ||
-                        fullText.includes('Cookie') ||
-                        fullText.includes('Datenschutz') ||
-                        fullText.includes('Impressum')) {
-                        return; // Skip this element
-                    }
-
-                    // Extract location
-                    let location = 'N/A';
-                    const locationMatch = fullText.match(/(\d{5}\s+[A-Za-züäöß\s-]+)/);
-                    if (locationMatch) {
-                        location = locationMatch[1].trim();
-                    } else {
-                        // Try to find Berlin districts
-                        const berlinMatch = fullText.match(/(Berlin[\s-][A-Za-züäöß\s-]+)/);
-                        if (berlinMatch) {
-                            location = berlinMatch[1].trim();
-                        }
-                    }
-
-                    // Extract title (first meaningful line)
-                    let title = 'N/A';
-                    const titleEl = element.querySelector('h1, h2, h3, h4, [class*="title"], [class*="headline"]');
-                    if (titleEl && titleEl.textContent.trim().length > 5) {
-                        title = titleEl.textContent.trim().substring(0, 100);
-                    } else {
-                        const lines = fullText.split('\n').filter(line =>
-                            line.trim().length > 10 &&
-                            !line.includes('€') &&
-                            !line.includes('m²')
-                        );
-                        if (lines.length > 0) {
-                            title = lines[0].trim().substring(0, 100);
-                        }
-                    }
-
-                    // Extract link
-                    let link = 'N/A';
-                    const linkEl = element.querySelector('a[href]') || element.closest('a');
-                    if (linkEl && linkEl.href) {
-                        link = linkEl.href;
-                    }
-
-                    // Validate data quality
-                    const priceNum = parseFloat(price.replace(/[^\d.,]/g, '').replace(',', '.'));
-                    const sizeNum = parseFloat(size.replace(/[^\d.,]/g, '').replace(',', '.'));
-
-                    // STRICT VALIDATION: Must have at least price AND size to be a real apartment
-                    if (price !== 'N/A' && size !== 'N/A') {
-                        // Price between 50-2000€ and size between 15-200m²
-                        if ((priceNum >= 50 && priceNum <= 2000) &&
-                            (sizeNum >= 15 && sizeNum <= 200)) {
-
-                            const apartment = {
-                                id: `immobilien_${Date.now()}_${index}`,
-                                title: title,
-                                price: price,
-                                size: size,
-                                rooms: rooms,
-                                location: location,
-                                link: link,
-                                description: fullText.substring(0, 300).replace(/\s+/g, ' ').trim(),
-                                source: 'immobilien.de',
-                                scrapedAt: new Date().toISOString(),
-                                pageUrl: window.location.href
-                            };
-
-                            results.push(apartment);
-                            console.log(`✓ Valid apartment ${results.length}:`, {
-                                price: apartment.price,
-                                size: apartment.size,
-                                rooms: apartment.rooms,
-                                title: apartment.title.substring(0, 40) + '...'
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.log(`Error processing element ${index}:`, e.message);
-                }
-            });
-
-            console.log(`Total extracted: ${results.length} apartments`);
-            return results;
         });
 
         await browser.close();
         
-        console.log(`Extraction completed: ${apartments.length} apartments found`);
+        console.log(`Trovati ${apartments.length} appartamenti`);
         
-        // Save results to file
+        // Format results for GitHub Gist
         const results = {
             success: true,
             count: apartments.length,
             timestamp: new Date().toISOString(),
-            data: apartments
+            source: 'stadtundland.de',
+            data: apartments.map(apt => ({
+                id: `stadtundland_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                price: apt.price || 'N/A',
+                size: apt.size || 'N/A', 
+                rooms: apt.rooms || 'N/A',
+                title: apt.title || 'N/A',
+                link: apt.link || 'N/A',
+                description: apt.fullText || 'N/A',
+                source: 'stadtundland.de',
+                scrapedAt: new Date().toISOString()
+            }))
         };
         
         fs.writeFileSync('results.json', JSON.stringify(results, null, 2));
         console.log('Results saved to results.json');
         
-        return apartments;
+        return results;
 
     } catch (error) {
         await browser.close();
@@ -303,7 +293,8 @@ async function scrapeImmobilien() {
         const errorResult = {
             success: false,
             error: error.message,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            source: 'stadtundland.de'
         };
         
         fs.writeFileSync('results.json', JSON.stringify(errorResult, null, 2));
@@ -312,7 +303,7 @@ async function scrapeImmobilien() {
 }
 
 // Run the scraper
-scrapeImmobilien().then(() => {
+scrapeApartments().then(() => {
     console.log('Scraping completed successfully');
 }).catch(error => {
     console.error('Scraping failed:', error);
