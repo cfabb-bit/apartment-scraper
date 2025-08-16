@@ -7,8 +7,7 @@ async function scrapeApartments() {
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     
-    try {
-        const url  = 'https://stadtundland.de/wohnungssuche?district=all&maxRate=450';
+    try {const url = 'https://stadtundland.de/wohnungssuche?district=all&maxRate=450';
         console.log('Processing:', url);
 
         // Navigate to page
