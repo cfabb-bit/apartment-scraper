@@ -26,7 +26,7 @@ jobs:
           curl -X PATCH \
             -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"files\":{\"apartments.json\":{\"content\":\"$(cat results.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
+            -d "{\"files\":{\"stadtundland.json\":{\"content\":\"$(cat results.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
             https://api.github.com/gists/${{ secrets.GIST_ID }}
       
       # Scrape Immobilien
@@ -39,5 +39,5 @@ jobs:
           curl -X PATCH \
             -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"files\":{\"apartments-immobilien.json\":{\"content\":\"$(cat results-immobilien.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
+            -d "{\"files\":{\"immobilien.json\":{\"content\":\"$(cat results-immobilien.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
             https://api.github.com/gists/${{ secrets.GIST_ID_IMMOBILIEN }}
