@@ -1,43 +1,104 @@
-name: Multi-Site Apartment Scraping
-on:
-  workflow_dispatch:  # Trigger manuale
-  repository_dispatch:
-    types: [scrape_apartments]
+const { chromium } = require('playwright');
+const fs = require('fs');
 
-jobs:
-  scrape-all:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+async function scrapeImmobilien() {
+  console.log('Starting Immobilien scraping...');
+  
+  const browser = await chromium.launch({
+    headless: true
+  });
+  
+  const page = await browser.newPage();
+  
+  try {
+    // Navigate to the immobilien website
+    await page.goto('https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten', {
+      waitUntil: 'networkidle'
+    });
+    
+    // Wait for listings to load
+    await page.waitForSelector('[data-testid="result-list-entry"]', { timeout: 10000 });
+    
+    // Extract apartment data
+    const apartments = await page.evaluate(() => {
+      const listings = document.querySelectorAll('[data-testid="result-list-entry"]');
+      const results = [];
       
-      - run: npm install
-      - run: npx playwright install chromium
+      listings.forEach((listing, index) => {
+        try {
+          const titleElement = listing.querySelector('h3 a, h2 a, .result-list-entry__brand-title a');
+          const priceElement = listing.querySelector('[data-testid="price"] dd, .result-list-entry__primary-criterion dd');
+          const sizeElement = listing.querySelector('[data-testid="area"] dd, .result-list-entry__primary-criterion:nth-child(2) dd');
+          const roomsElement = listing.querySelector('[data-testid="rooms"] dd, .result-list-entry__primary-criterion:nth-child(3) dd');
+          const linkElement = listing.querySelector('h3 a, h2 a, .result-list-entry__brand-title a');
+          
+          if (titleElement && priceElement) {
+            const apartment = {
+              id: `immobilien_${index + 1}`,
+              title: titleElement.textContent?.trim() || 'N/A',
+              price: priceElement.textContent?.trim() || 'N/A',
+              size: sizeElement?.textContent?.trim() || 'N/A',
+              rooms: roomsElement?.textContent?.trim() || 'N/A',
+              link: linkElement?.href ? (linkElement.href.startsWith('http') ? linkElement.href : `https://www.immobilienscout24.de${linkElement.href}`) : 'N/A',
+              source: 'ImmobilienScout24',
+              scraped_at: new Date().toISOString(),
+              location: 'Berlin'
+            };
+            
+            results.push(apartment);
+          }
+        } catch (error) {
+          console.error(`Error processing listing ${index}:`, error);
+        }
+      });
       
-      # Scrape Stadtundland
-      - name: Scrape Stadtundland
-        run: node scraper.js
-      
-      # Update Stadtundland Gist
-      - name: Update Stadtundland Gist
-        run: |
-          curl -X PATCH \
-            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"files\":{\"apartments.json\":{\"content\":\"$(cat results.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
-            https://api.github.com/gists/${{ secrets.GIST_ID }}
-      
-      # Scrape Immobilien
-      - name: Scrape Immobilien  
-        run: node scraper-immobilien.js
-      
-      # Update Immobilien Gist
-      - name: Update Immobilien Gist
-        run: |
-          curl -X PATCH \
-            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"files\":{\"apartments-immobilien.json\":{\"content\":\"$(cat results-immobilien.json | jq -c . | sed 's/"/\\"/g')\"}}}" \
-            https://api.github.com/gists/${{ secrets.GIST_ID_IMMOBILIEN }}
+      return results;
+    });
+    
+    console.log(`Found ${apartments.length} apartments on ImmobilienScout24`);
+    
+    // Add some metadata
+    const results = {
+      source: 'ImmobilienScout24',
+      scraped_at: new Date().toISOString(),
+      total_found: apartments.length,
+      apartments: apartments
+    };
+    
+    // Save results to file for the workflow to pick up
+    fs.writeFileSync('results-immobilien.json', JSON.stringify(results, null, 2));
+    
+    console.log('Results saved to results-immobilien.json');
+    
+    return results;
+    
+  } catch (error) {
+    console.error('Error during scraping:', error);
+    
+    // Save error info
+    const errorResult = {
+      source: 'ImmobilienScout24',
+      scraped_at: new Date().toISOString(),
+      error: error.message,
+      total_found: 0,
+      apartments: []
+    };
+    
+    fs.writeFileSync('results-immobilien.json', JSON.stringify(errorResult, null, 2));
+    throw error;
+    
+  } finally {
+    await browser.close();
+  }
+}
+
+// Run the scraper
+scrapeImmobilien()
+  .then(results => {
+    console.log('Scraping completed successfully');
+    console.log(`Total apartments found: ${results.total_found}`);
+  })
+  .catch(error => {
+    console.error('Scraping failed:', error);
+    process.exit(1);
+  });
