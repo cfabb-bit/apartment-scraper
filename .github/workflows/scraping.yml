@@ -1,4 +1,4 @@
-    name: Multi-Site Apartment Scraping
+    name: Multi-Site Apartment Scraping v2
 on:
   workflow_dispatch:  # Trigger manuale
   repository_dispatch:
