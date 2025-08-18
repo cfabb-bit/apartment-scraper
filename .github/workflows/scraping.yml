@@ -18,7 +18,7 @@ jobs:
       
       # Scrape Stadtundland
       - name: Scrape Stadtundland
-        run: node scraper.js
+        run: node scraper-stadtundland.js
       
       # Update Stadtundland Gist
       - name: Update Stadtundland Gist
