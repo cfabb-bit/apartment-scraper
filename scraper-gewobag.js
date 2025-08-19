@@ -11,18 +11,43 @@ async function scrapeApartments() {
         const url = 'https://www.gewobag.de/fuer-mietinteressentinnen/mietangebote/?objekttyp%5B%5D=wohnung&gesamtmiete_von=&gesamtmiete_bis=450&gesamtflaeche_von=&gesamtflaeche_bis=&zimmer_von=&zimmer_bis=&sort-by=';
         console.log('Processing:', url);
 
-        // Navigate to page
-        await page.goto(url, { waitUntil: 'networkidle' });
+        // Navigate to page with longer timeout
+        await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
         console.log('Page loaded');
 
-        // Wait for page load
-        await page.waitForTimeout(5000);
+        // Accept cookies if present
+        try {
+            await page.click('[data-testid="cookie-accept"]', { timeout: 3000 });
+            console.log('Cookies accepted');
+        } catch (e) {
+            console.log('No cookie banner found or already accepted');
+        }
+
+        // Try alternative cookie selectors
+        try {
+            await page.click('button:has-text("Akzeptieren")', { timeout: 2000 });
+            console.log('Cookie button clicked');
+        } catch (e) {
+            console.log('No alternative cookie button');
+        }
+
+        // Wait longer for dynamic content
+        await page.waitForTimeout(8000);
         
-        // Scroll to trigger lazy loading
-        await page.evaluate(() => {
-            window.scrollTo(0, document.body.scrollHeight);
-        });
+        // Take screenshot for debugging
+        await page.screenshot({ path: 'gewobag-debug.png', fullPage: true });
+        console.log('Screenshot saved for debugging');
+        
+        // Wait longer and scroll multiple times
         await page.waitForTimeout(3000);
+        
+        // Scroll in steps to trigger all lazy loading
+        for (let i = 0; i < 3; i++) {
+            await page.evaluate(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+            await page.waitForTimeout(2000);
+        }
         
         console.log('Page preparation completed, extracting data...');
 
@@ -33,33 +58,49 @@ async function scrapeApartments() {
                 
                 const results = [];
                 
-                // STEP 1: Analisi base della pagina
+                // STEP 1: Analisi completa della pagina
                 try {
                     const bodyText = document.body.textContent;
                     console.log(`Lunghezza testo pagina: ${bodyText.length}`);
                     console.log(`Contiene "€": ${bodyText.includes('€')}`);
                     console.log(`Contiene "m²": ${bodyText.includes('m²')}`);
                     console.log(`Contiene "Zimmer": ${bodyText.includes('Zimmer')}`);
+                    console.log(`Contiene "miete": ${bodyText.toLowerCase().includes('miete')}`);
+                    
+                    // Verifica se ci sono messaggi tipo "keine Angebote"
+                    console.log(`Contiene "keine": ${bodyText.toLowerCase().includes('keine')}`);
+                    console.log(`Contiene "nicht verfügbar": ${bodyText.toLowerCase().includes('nicht verfügbar')}`);
+                    
+                    // Debug: mostra parte del contenuto
+                    console.log('\n--- SAMPLE DEL CONTENUTO PAGINA ---');
+                    console.log(bodyText.substring(0, 500));
+                    console.log('\n--- FINE SAMPLE ---');
+                    
                 } catch (e) {
                     console.log(`Errore analisi pagina: ${e.message}`);
                 }
                 
-                // STEP 2: Cerca strutture tipiche di Gewobag
-                // Prova diversi selettori comuni per siti immobiliari
-                const possibleSelectors = [
-                    '.object-item',
-                    '.listing-item', 
+                // STEP 2: Cerca strutture specifiche di Gewobag
+                const gewobagSelectors = [
+                    '.object-list-item',
+                    '.offer-item', 
                     '.property-item',
                     '.apartment-item',
-                    '.offer-item',
+                    '.listing-item',
                     '[class*="object"]',
+                    '[class*="angebot"]',
+                    '[class*="wohnung"]',
                     '[class*="listing"]',
                     '[class*="property"]',
-                    '[class*="apartment"]'
+                    '[class*="apartment"]',
+                    'article',
+                    '.card',
+                    '[data-testid*="object"]',
+                    '[data-testid*="listing"]'
                 ];
                 
                 let foundItems = [];
-                for (const selector of possibleSelectors) {
+                for (const selector of gewobagSelectors) {
                     const items = document.querySelectorAll(selector);
                     if (items.length > 0) {
                         console.log(`Trovati ${items.length} elementi con selector: ${selector}`);
