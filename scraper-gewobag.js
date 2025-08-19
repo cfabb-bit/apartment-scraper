@@ -44,7 +44,7 @@ async function scrapeApartments() {
                     console.log(`Errore analisi pagina: ${e.message}`);
                 }
                 
-                // STEP 2: Trova TUTTI i link - same approach as stadtundland
+                // STEP 2: Trova TUTTI i link - improved detection
                 let allValidLinks = [];
                 try {
                     const allLinks = document.querySelectorAll('a[href]');
@@ -53,11 +53,23 @@ async function scrapeApartments() {
                     Array.from(allLinks).forEach((linkEl, i) => {
                         try {
                             const href = linkEl.href;
-                            if (href && href.includes('gewobag.de')) {
+                            if (href) {
                                 console.log(`Link ${i + 1}: ${href}`);
                                 
-                                // Check for apartment detail patterns
-                                if (href.includes('objekt') || href.includes('detail') || href.includes('wohnung')) {
+                                // Check for apartment detail patterns - more specific for Gewobag
+                                if ((href.includes('gewobag.de') && 
+                                    (href.includes('objekt') || 
+                                     href.includes('detail') || 
+                                     href.includes('wohnung') ||
+                                     href.includes('expose') ||
+                                     href.includes('immobilie'))) ||
+                                    // Also check for relative paths that might be apartment links
+                                    (href.includes('/') && 
+                                     !href.includes('objekttyp') && 
+                                     !href.includes('gesamtmiete') &&
+                                     !href.includes('sort-by') &&
+                                     href !== window.location.href)) {
+                                    
                                     const rect = linkEl.getBoundingClientRect();
                                     allValidLinks.push({
                                         href: href,
@@ -66,7 +78,8 @@ async function scrapeApartments() {
                                         text: linkEl.textContent ? linkEl.textContent.trim() : '',
                                         used: false
                                     });
-                                    console.log(`  -> LINK VALIDO AGGIUNTO`);
+                                    console.log(`  -> LINK VALIDO AGGIUNTO: ${href}`);
+                                    console.log(`  -> Testo link: "${linkEl.textContent ? linkEl.textContent.trim().substring(0, 50) : 'N/A'}"`);
                                 }
                             }
                         } catch (e) {
@@ -75,6 +88,9 @@ async function scrapeApartments() {
                     });
                     
                     console.log(`Link validi trovati: ${allValidLinks.length}`);
+                    allValidLinks.forEach((link, i) => {
+                        console.log(`${i + 1}. ${link.href} - "${link.text.substring(0, 50)}"`);
+                    });
                     
                 } catch (e) {
                     console.log(`Errore ricerca link: ${e.message}`);
@@ -174,61 +190,124 @@ async function scrapeApartments() {
                     }
                 });
                 
-                // STEP 5: Associate links - same logic as stadtundland
-                console.log(`\n=== ASSOCIAZIONE LINK ===`);
+                // STEP 5: Associate links - enhanced logic
+                console.log(`\n=== ASSOCIAZIONE LINK AVANZATA ===`);
                 console.log(`Appartamenti unici: ${uniqueApartments.length}`);
                 console.log(`Link disponibili: ${allValidLinks.length}`);
                 
                 uniqueApartments.forEach((apartment, aptIndex) => {
                     try {
                         console.log(`\nAssociando appartamento ${aptIndex + 1}: ${apartment.price} - ${apartment.size}`);
+                        console.log(`Posizione appartamento: ${apartment.position}px`);
+                        console.log(`Titolo appartamento: "${apartment.title}"`);
                         
                         let bestLink = null;
-                        let bestDistance = Infinity;
+                        let bestScore = 0;
                         
-                        // Same link association logic as stadtundland
-                        allValidLinks.forEach((link, linkIndex) => {
-                            if (link.used) return;
+                        // Strategy 1: Look for links within the apartment container
+                        const containerLinks = apartment.container.querySelectorAll('a[href]');
+                        console.log(`  Links nel contenitore: ${containerLinks.length}`);
+                        
+                        Array.from(containerLinks).forEach((linkEl, linkIndex) => {
+                            const href = linkEl.href;
+                            const linkText = linkEl.textContent ? linkEl.textContent.trim() : '';
                             
-                            try {
-                                let score = 0;
-                                
-                                // Check if link is contained in apartment
-                                if (apartment.container.contains(link.element)) {
-                                    score = 1000000; // Max priority
-                                    console.log(`  Link ${linkIndex + 1}: CONTENUTO DIRETTO (score: ${score})`);
-                                } else {
-                                    // Check distance
-                                    const distance = Math.abs(apartment.position - link.position);
-                                    score = Math.max(0, 1000 - distance);
-                                    console.log(`  Link ${linkIndex + 1}: distanza ${distance}px (score: ${score})`);
-                                }
-                                
-                                if (score > 0 && (!bestLink || score > bestDistance)) {
-                                    bestLink = link;
-                                    bestDistance = score;
-                                    console.log(`    -> NUOVO MIGLIOR LINK (score: ${score})`);
-                                }
-                                
-                            } catch (e) {
-                                console.log(`  Errore valutando link ${linkIndex}: ${e.message}`);
+                            console.log(`    Link contenitore ${linkIndex + 1}: ${href}`);
+                            console.log(`    Testo: "${linkText.substring(0, 30)}"`);
+                            
+                            // Score the link based on various factors
+                            let score = 0;
+                            
+                            // Higher score for apartment-specific URLs
+                            if (href.includes('objekt') || href.includes('detail') || href.includes('expose')) {
+                                score += 1000;
+                            }
+                            
+                            // Higher score for links that look like detail links
+                            if (linkText.toLowerCase().includes('detail') || 
+                                linkText.toLowerCase().includes('mehr') ||
+                                linkText.toLowerCase().includes('info') ||
+                                linkText.toLowerCase().includes('ansehen')) {
+                                score += 500;
+                            }
+                            
+                            // Lower score for obviously wrong links
+                            if (href.includes('objekttyp') || href.includes('sort-by') || href === window.location.href) {
+                                score = 0;
+                            }
+                            
+                            // Check if it's a different URL than the search page
+                            if (href !== window.location.href && !href.includes('objekttyp%5B%5D=wohnung')) {
+                                score += 100;
+                            }
+                            
+                            console.log(`      Score: ${score}`);
+                            
+                            if (score > bestScore) {
+                                bestLink = { href, element: linkEl, score };
+                                bestScore = score;
+                                console.log(`      -> NUOVO MIGLIOR LINK CONTENITORE (score: ${score})`);
                             }
                         });
                         
-                        if (bestLink) {
-                            apartment.link = bestLink.href;
-                            bestLink.used = true;
-                            console.log(`  ✓ ASSEGNATO: ${bestLink.href}`);
-                        } else {
-                            console.log(`  ✗ NESSUN LINK TROVATO`);
+                        // Strategy 2: If no good link in container, check nearby links
+                        if (!bestLink || bestScore < 100) {
+                            console.log(`  Nessun link valido nel contenitore, controllo links vicini...`);
                             
-                            // Fallback: assign first available link if exists
-                            const availableLink = allValidLinks.find(l => !l.used);
-                            if (availableLink) {
-                                apartment.link = availableLink.href;
-                                availableLink.used = true;
-                                console.log(`  📌 LINK FALLBACK ASSEGNATO: ${availableLink.href}`);
+                            allValidLinks.forEach((link, linkIndex) => {
+                                if (link.used) return;
+                                
+                                try {
+                                    let score = 0;
+                                    
+                                    // Check if apartment title matches link text or URL
+                                    if (apartment.title && link.text) {
+                                        const titleWords = apartment.title.toLowerCase().split(/\s+/);
+                                        const linkWords = link.text.toLowerCase().split(/\s+/);
+                                        const commonWords = titleWords.filter(word => 
+                                            word.length > 3 && linkWords.some(lw => lw.includes(word) || word.includes(lw))
+                                        );
+                                        
+                                        if (commonWords.length > 0) {
+                                            score += commonWords.length * 200;
+                                            console.log(`    Link ${linkIndex + 1}: parole comuni con titolo: ${commonWords.join(', ')} (score: +${commonWords.length * 200})`);
+                                        }
+                                    }
+                                    
+                                    // Distance-based scoring
+                                    const distance = Math.abs(apartment.position - link.position);
+                                    const distanceScore = Math.max(0, 200 - distance / 10);
+                                    score += distanceScore;
+                                    
+                                    console.log(`    Link ${linkIndex + 1}: distanza ${distance}px (score: +${distanceScore.toFixed(0)})`);
+                                    console.log(`    Score totale: ${score}`);
+                                    
+                                    if (score > bestScore) {
+                                        bestLink = { href: link.href, element: link.element, score };
+                                        bestScore = score;
+                                        console.log(`      -> NUOVO MIGLIOR LINK GLOBALE (score: ${score})`);
+                                    }
+                                    
+                                } catch (e) {
+                                    console.log(`    Errore valutando link ${linkIndex}: ${e.message}`);
+                                }
+                            });
+                        }
+                        
+                        // Assign the best link found
+                        if (bestLink && bestScore > 50) {  // Minimum threshold
+                            apartment.link = bestLink.href;
+                            
+                            // Mark link as used if it's from allValidLinks
+                            const usedLink = allValidLinks.find(l => l.href === bestLink.href);
+                            if (usedLink) {
+                                usedLink.used = true;
                             }
+                            
+                            console.log(`  ✅ ASSEGNATO (score: ${bestScore}): ${bestLink.href}`);
+                        } else {
+                            console.log(`  ❌ NESSUN LINK VALIDO TROVATO (miglior score: ${bestScore})`);
+                            apartment.link = null;
                         }
                         
                     } catch (e) {
