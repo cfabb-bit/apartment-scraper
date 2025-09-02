@@ -14,10 +14,27 @@ jobs:
       - name: Find all scrapers
         id: find-scrapers
         run: |
-          # Trova tutti i file scraper-*.js
-        SCRAPERS=$(find . -maxdepth 1 -name "scraper-*.js" -type f | sed 's|./scraper-||' | sed 's|.js||' | sort | jq -R . | jq -s . | tr -d '\n')
+          # Trova tutti i file scraper-*.js e crea lista semplice
+          SCRAPER_FILES=$(find . -maxdepth 1 -name "scraper-*.js" -type f | sort)
+          echo "🔍 File trovati:"
+          echo "$SCRAPER_FILES"
+          
+          # Converti in array JSON compatto
+          SCRAPERS="["
+          FIRST=true
+          for file in $SCRAPER_FILES; do
+            name=$(basename "$file" .js | sed 's/scraper-//')
+            if [ "$FIRST" = true ]; then
+              SCRAPERS="$SCRAPERS\"$name\""
+              FIRST=false
+            else
+              SCRAPERS="$SCRAPERS,\"$name\""
+            fi
+          done
+          SCRAPERS="$SCRAPERS]"
+          
           echo "scrapers=$SCRAPERS" >> $GITHUB_OUTPUT
-          echo "🔍 Scrapers trovati: $SCRAPERS"
+          echo "📋 Output finale: $SCRAPERS"
 
   scrape-all:
     needs: find-scrapers  
