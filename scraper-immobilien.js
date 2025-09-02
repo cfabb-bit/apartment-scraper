@@ -1,45 +1,4 @@
-    // Extract apartment data - focus on "Top Objekte" section first
-    const apartments = await page.evaluate(() => {
-      const results = [];
-      const processedContent = new Set();
-      
-      console.log('=== LOOKING FOR TOP OBJEKTE SECTION ===');
-      
-      try {
-        // Strategy 1: Find "Top Objekte" section
-        let topObjekteSection = null;
-        const possibleSelectors = [
-          '[class*="top"]',
-          '[class*="objekt"]', 
-          '[class*="featured"]',
-          '[class*="highlight"]',
-          '[id*="top"]',
-          '[data-testid*="top"]'
-        ];
-        
-        // Look for elements containing "Top Objekte" text
-        const allElements = document.querySelectorAll('*');
-        Array.from(allElements).forEach(el => {
-          const text = el.textContent || '';
-          if (text.toLowerCase().includes('top objekt') || 
-              text.toLowerCase().includes('top-objekt') ||
-              text.toLowerCase().includes('empfehlung')) {
-            console.log(`Found potential top section: ${el.tagName}.${el.className} - "${text.substring(0, 100)}"`);
-            
-            // Check if this element contains apartment data
-            if (text.includes('€') && text.includes('Berlin') && text.length > 200) {
-              topObjekteSection = el;
-              console.log('✓ Selected as Top Objekte section');
-            }
-          }
-        });
-        
-        // If found, extract from Top Objekte section only
-        if (topObjekteSection) {
-          console.log('=== EXTRACTING FROM TOP OBJEKTE SECTION ===');
-          
-          // Look for apartment containers within this section
-          const sectionElements = topObjekteconst { chromium } = require('playwright');
+const { chromium } = require('playwright');
 const fs = require('fs');
 
 async function scrapeImmobilien() {
@@ -131,234 +90,141 @@ async function scrapeImmobilien() {
 
     console.log('Page preparation completed, extracting data...');
 
-    // Extract apartment data - find elements AFTER "Top Objekte" section
+    // Extract apartment data using link-based approach
     const apartments = await page.evaluate(() => {
       const results = [];
-      const processedContent = new Set();
+      const processedUrls = new Set();
       
-      console.log('=== LOOKING FOR CONTENT AFTER TOP OBJEKTE SECTION ===');
+      // Find all apartment links first - these are the unique identifiers
+      const apartmentLinks = document.querySelectorAll('a[href*="/wohnen/"]');
       
-      try {
-        // Find the "Top Objekte" section first
-        let topObjekteSection = null;
-        const allElements = document.querySelectorAll('*');
+      apartmentLinks.forEach(link => {
+        const href = link.href;
         
-        Array.from(allElements).forEach(el => {
-          const text = el.textContent || '';
-          const innerHTML = el.innerHTML || '';
+        // Only process links that match apartment detail pattern
+        if (/\/wohnen\/\d+/.test(href) && !processedUrls.has(href)) {
+          processedUrls.add(href);
           
-          // Look for the Top Objekte header/container
-          if ((text.toLowerCase().includes('top objekt') || 
-               text.toLowerCase().includes('top-objekt') ||
-               innerHTML.toLowerCase().includes('top objekt')) &&
-              text.length < 500) { // Header sections are usually shorter
-            console.log(`Found Top Objekte section: ${el.tagName}.${el.className} - "${text.substring(0, 60)}"`);
-            topObjekteSection = el;
-          }
-        });
-        
-        if (!topObjekteSection) {
-          console.log('Top Objekte section not found, processing all elements');
-        } else {
-          console.log('✓ Found Top Objekte section, will look for content after it');
-        }
-        
-        // Collect apartment containers that come AFTER Top Objekte section
-        const candidateContainers = [];
-        let foundTopObjekte = false;
-        
-        Array.from(allElements).forEach((el, index) => {
-          // Check if we've passed the Top Objekte section
-          if (topObjekteSection && (el === topObjekteSection || topObjekteSection.contains(el))) {
-            foundTopObjekte = true;
-            console.log(`Passed Top Objekte section at element ${index}`);
-            return;
-          }
+          // Find the containing element that has the apartment data
+          let container = link;
+          let found = false;
           
-          // Only process elements that come after Top Objekte (or all if not found)
-          if (!topObjekteSection || foundTopObjekte) {
-            const text = el.textContent || '';
+          // Look up the DOM tree to find a container with price and apartment data
+          for (let i = 0; i < 10; i++) {
+            container = container.parentElement;
+            if (!container) break;
             
-            // Must contain price, reasonable text length, and Berlin
-            if (text.length > 100 && text.length < 1500 && 
-                /\d+[,.]?\d*\s*€/.test(text) && 
-                text.includes('Berlin')) {
-              
-              // Check if this looks like an apartment listing (not too many prices)
-              const priceMatches = text.match(/(\d+[,.]?\d*)\s*€/g);
-              if (priceMatches && priceMatches.length <= 3) {
-                candidateContainers.push({
-                  element: el,
-                  text: text,
-                  textLength: text.length,
-                  index: index
-                });
-              }
-            }
-          }
-        });
-        
-        console.log(`Found ${candidateContainers.length} candidate containers after Top Objekte`);
-        
-        // Sort by position in DOM (keep natural order) and text length
-        candidateContainers.sort((a, b) => {
-          // First by DOM position, then by ideal text length
-          if (Math.abs(a.index - b.index) > 10) {
-            return a.index - b.index;
-          }
-          const idealLength = 300;
-          return Math.abs(a.textLength - idealLength) - Math.abs(b.textLength - idealLength);
-        });
-        
-        // Process candidates
-        candidateContainers.slice(0, 10).forEach((candidate, candidateIndex) => {
-          const text = candidate.text;
-          const element = candidate.element;
-          
-          console.log(`\nProcessing candidate ${candidateIndex + 1} (DOM index: ${candidate.index}, ${text.length} chars)`);
-          console.log(`Text preview: ${text.substring(0, 120).replace(/\s+/g, ' ')}...`);
-          
-          // Extract price (first occurrence only)
-          const priceMatch = text.match(/(\d{2,4}(?:[,.]\d{1,2})?)\s*€/);
-          if (!priceMatch) {
-            console.log(`  ❌ No price found`);
-            return;
-          }
-          
-          const price = priceMatch[1];
-          const priceNum = parseInt(price);
-          
-          // Price validation (search criteria ≤450€)  
-          if (priceNum < 200 || priceNum > 450) {
-            console.log(`  ❌ Price out of search range: ${price}€`);
-            return;
-          }
-          
-          // Extract size and rooms
-          const sizeMatch = text.match(/(\d{1,3}(?:[,.]\d{1,2})?)\s*m²/);
-          const roomMatch = text.match(/(\d(?:[,.]\d)?)\s*[Zz]immer/);
-          
-          // Create unique identifier
-          const sizeText = sizeMatch ? sizeMatch[1] : 'nosize';
-          const roomText = roomMatch ? roomMatch[1] : 'noroom';
-          const uniqueId = `${price}-${sizeText}-${roomText}`;
-          
-          if (processedContent.has(uniqueId)) {
-            console.log(`  ⚠️  Duplicate detected: ${uniqueId}`);
-            return;
-          }
-          
-          processedContent.add(uniqueId);
-          
-          // Extract title - look for meaningful apartment descriptions
-          let title = '';
-          const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 5);
-          
-          // Priority patterns for apartment titles
-          const titlePatterns = [
-            /Günstiges.*Wohnen/i,
-            /Familiengerecht/i,
-            /Senioren.*Wohnung/i,
-            /\d+-Zi.*Wohnung/i,
-            /Wohnung.*Berlin/i,
-            /\d{5}\s+Berlin/
-          ];
-          
-          // Look for patterned titles first
-          for (const pattern of titlePatterns) {
-            for (const line of lines) {
-              if (pattern.test(line) && line.length > 10 && line.length < 100) {
-                title = line;
-                break;
-              }
-            }
-            if (title) break;
-          }
-          
-          // Fallback to Berlin address
-          if (!title) {
-            for (const line of lines) {
-              if (line.includes('Berlin') && line.length > 10 && line.length < 80 && 
-                  !line.toLowerCase().includes('top objekt')) {
-                title = line;
-                break;
-              }
-            }
-          }
-          
-          if (!title) {
-            title = lines.find(l => l.length > 15 && l.length < 100) || `${price}€ Berlin`;
-          }
-          
-          // Find apartment detail link
-          const containerLinks = element.querySelectorAll('a[href*="/wohnen/"]');
-          let bestLink = 'N/A';
-          
-          for (const link of containerLinks) {
-            const href = link.href;
-            if (/\/wohnen\/\d+/.test(href)) { // Pattern like /wohnen/9219169
-              bestLink = href.startsWith('http') ? href : `https://www.immobilien.de${href}`;
+            const text = container.textContent || '';
+            
+            // Must contain price, size info, and be reasonably sized
+            if (text.includes('€') && text.includes('m²') && 
+                text.includes('Berlin') && text.length > 200 && text.length < 2000) {
+              found = true;
               break;
             }
           }
           
+          if (!found || !container) {
+            return; // Skip if no proper container found
+          }
+          
+          const text = container.textContent || '';
+          
+          // Extract apartment data using precise patterns based on page structure
+          
+          // Price extraction - look for "XXX € Kaltmiete" or just "XXX €"
+          const pricePattern = /(\d+(?:[,.]\d+)?)\s*€(?:\s*Kaltmiete)?/;
+          const priceMatch = text.match(pricePattern);
+          
+          if (!priceMatch) return;
+          
+          const price = priceMatch[1].replace(',', '.');
+          const priceNum = parseFloat(price);
+          
+          // Validate price is within search criteria
+          if (priceNum < 200 || priceNum > 450) return;
+          
+          // Size extraction - look for "XX,XX m² Wohnfläche" pattern
+          const sizePattern = /(\d+(?:[,.]\d+)?)\s*m²(?:\s*Wohnfläche)?/;
+          const sizeMatch = text.match(sizePattern);
+          
+          // Room extraction - look for "X Zimmer" pattern
+          const roomPattern = /(\d+(?:[,.]\d+)?)\s*Zimmer/;
+          const roomMatch = text.match(roomPattern);
+          
+          // Extract title - look for apartment description before the location
+          let title = '';
+          
+          // Split text into lines and look for descriptive titles
+          const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0);
+          
+          for (const line of lines) {
+            // Look for characteristic apartment titles
+            if (line.length > 10 && line.length < 150 && 
+                !line.includes('€') && !line.includes('m²') && 
+                !line.includes('Zimmer') && !line.includes('Wohnung mieten')) {
+              
+              if (line.includes('Günstiges') || line.includes('Familiengerecht') ||
+                  line.includes('Senioren') || line.includes('Neubau') ||
+                  line.includes('Erstbezug') || line.includes('Balkon') ||
+                  line.includes('zentral') || line.includes('modern')) {
+                title = line;
+                break;
+              }
+              
+              // If no descriptive title, look for location
+              if (!title && /\d{5}\s+Berlin/.test(line)) {
+                title = line;
+              }
+            }
+          }
+          
+          // Fallback title
+          if (!title) {
+            title = `${price}€ Apartment in Berlin`;
+          }
+          
+          // Create apartment object
           const apartment = {
             price: price + ' €',
-            size: sizeMatch ? sizeMatch[1] + ' m²' : 'N/A',
-            rooms: roomMatch ? roomMatch[1] + ' Zimmer' : 'N/A',
+            size: sizeMatch ? sizeMatch[1].replace(',', '.') + ' m²' : 'N/A',
+            rooms: roomMatch ? roomMatch[1].replace(',', '.') + ' Zimmer' : 'N/A',
             title: title.substring(0, 100),
-            link: bestLink,
-            fullText: text.substring(0, 200).replace(/\s+/g, ' ').trim(),
+            link: href,
+            fullText: text.substring(0, 300).replace(/\s+/g, ' ').trim(),
             rawPrice: price,
-            rawSize: sizeMatch ? sizeMatch[1] : null,
-            rawRooms: roomMatch ? roomMatch[1] : null
+            rawSize: sizeMatch ? sizeMatch[1].replace(',', '.') : null,
+            rawRooms: roomMatch ? roomMatch[1].replace(',', '.') : null
           };
           
           results.push(apartment);
-          console.log(`  ✅ Added: ${apartment.price} | ${apartment.size} | ${apartment.rooms}`);
-          console.log(`     Title: ${title.substring(0, 50)}...`);
-          console.log(`     Link: ${bestLink !== 'N/A' ? 'Valid' : 'Missing'}`);
-        });
-        
-      } catch (error) {
-        console.log('Error in extraction:', error.message);
-      }
-      
-      console.log(`\n=== FINAL RESULTS: ${results.length} apartments found AFTER Top Objekte ===`);
-      results.forEach((apt, i) => {
-        console.log(`${i + 1}. ${apt.price} | ${apt.size} | ${apt.rooms}`);
-        console.log(`   Title: ${apt.title}`);
-        console.log(`   Link: ${apt.link !== 'N/A' ? 'Yes' : 'No'}`);
+        }
       });
       
+      // Sort by price to have consistent order
+      results.sort((a, b) => parseFloat(a.rawPrice) - parseFloat(b.rawPrice));
+      
       return results;
-    });
     });
 
     await browser.close();
     
-    // Handle the results
-    if (apartments && apartments.error) {
-      throw new Error(`Page evaluation error: ${apartments.error}`);
-    }
-    
-    const apartmentList = Array.isArray(apartments) ? apartments : [];
-    console.log(`Successfully extracted ${apartmentList.length} apartments from Immobilien.de`);
+    console.log(`Successfully extracted ${apartments.length} apartments from Immobilien.de`);
     
     // Log results for debugging
-    apartmentList.forEach((apt, index) => {
+    apartments.forEach((apt, index) => {
       console.log(`${index + 1}. ${apt.price} | ${apt.size} | ${apt.rooms}`);
       console.log(`   Title: ${apt.title}`);
-      console.log(`   Link: ${apt.link !== 'N/A' ? apt.link : 'No direct link'}`);
+      console.log(`   Link: ${apt.link}`);
     });
     
     // Format results for consistent output
     const results = {
       success: true,
-      count: apartmentList.length,
+      count: apartments.length,
       timestamp: new Date().toISOString(),
       source: 'immobilien.de',
-      data: apartmentList.map((apt, index) => ({
+      data: apartments.map((apt, index) => ({
         id: `immobilien_${Date.now()}_${index}`,
         price: apt.price,
         size: apt.size,
