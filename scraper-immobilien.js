@@ -93,7 +93,9 @@ async function scrapeImmobilien() {
     // Extract apartment data with multiple strategies
     const apartments = await page.evaluate(() => {
       const results = [];
-      const found = new Set(); // Prevent duplicates
+      const found = new Set(); // Prevent duplicates with better key
+      
+      console.log('=== STARTING EXTRACTION ===');
       
       // Strategy 1: Look for apartment links
       try {
@@ -146,59 +148,82 @@ async function scrapeImmobilien() {
             
             if (priceMatch) {
               const price = priceMatch[1];
-              const duplicateKey = `${price}-${link.href}`;
+              const size = sizeMatch ? sizeMatch[1] : null;
+              const rooms = roomMatch ? roomMatch[1] : null;
+              
+              // Create better duplicate key using price + size + text sample
+              const textSample = text.substring(0, 100).replace(/\s+/g, ' ').trim();
+              const duplicateKey = `${price}-${size || 'nosize'}-${textSample}`;
               
               if (!found.has(duplicateKey)) {
                 found.add(duplicateKey);
                 
+                console.log(`Processing apartment: ${price}, ${size || 'N/A'}, ${rooms || 'N/A'}`);
+                
                 const apartment = {
                   price: price + ' €',
-                  size: sizeMatch ? sizeMatch[1] + ' m²' : 'N/A',
-                  rooms: roomMatch ? roomMatch[1] + ' Zimmer' : 'N/A',
+                  size: size ? size + ' m²' : 'N/A',
+                  rooms: rooms ? rooms + ' Zimmer' : 'N/A',
                   title: '',
                   link: link.href.startsWith('http') ? link.href : `https://www.immobilien.de${link.href}`,
-                  fullText: text.substring(0, 300).replace(/\s+/g, ' ').trim()
+                  fullText: textSample,
+                  rawPrice: price,
+                  rawSize: size,
+                  rawRooms: rooms
                 };
                 
-                // Extract title/description
+                // Enhanced title extraction with multiple fallbacks
                 const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 5);
                 
-                // Look for apartment title
+                // Priority 1: Look for apartment descriptions
                 for (const line of lines) {
-                  if (line.length > 10 && line.length < 100) {
-                    if (line.includes('Berlin') || 
-                        line.includes('Wohnung') || 
-                        line.includes('Zimmer') ||
-                        /\d{5}\s*Berlin/.test(line) ||
-                        /Str\.|Straße|Platz|Weg|Chaussee/.test(line)) {
+                  if (line.length > 15 && line.length < 150) {
+                    if (line.includes('Wohnung') || line.includes('Zimmer') || 
+                        /\d{5}\s*Berlin/.test(line) || line.includes('Günstiges') ||
+                        line.includes('Familiengerecht')) {
                       apartment.title = line;
                       break;
                     }
                   }
                 }
                 
-                // Fallback title extraction
+                // Priority 2: Look for Berlin addresses
                 if (!apartment.title) {
-                  const titleElements = container.querySelectorAll('h1, h2, h3, h4, [class*="title"], [class*="heading"]');
+                  for (const line of lines) {
+                    if (line.includes('Berlin') && line.length > 10 && line.length < 80) {
+                      apartment.title = line;
+                      break;
+                    }
+                  }
+                }
+                
+                // Priority 3: Look for structured elements
+                if (!apartment.title) {
+                  const titleElements = container.querySelectorAll('h1, h2, h3, h4, [class*="title"], [class*="heading"], [class*="name"]');
                   for (const titleEl of titleElements) {
                     const titleText = titleEl.textContent.trim();
-                    if (titleText.length > 5 && titleText.length < 150) {
+                    if (titleText.length > 10 && titleText.length < 100) {
                       apartment.title = titleText;
                       break;
                     }
                   }
                 }
                 
+                // Fallback
                 if (!apartment.title) {
-                  apartment.title = lines[0] || 'Berlin Apartment';
+                  apartment.title = lines.find(l => l.length > 10) || 'Berlin Apartment';
                 }
                 
                 apartment.title = apartment.title.substring(0, 100);
-                results.push(apartment);
                 
-                console.log(`Apartment ${results.length}: ${apartment.price} | ${apartment.size} | ${apartment.rooms}`);
-                console.log(`  Title: ${apartment.title}`);
-                console.log(`  Link: ${apartment.link}`);
+                // Only add if we have reasonable data
+                const priceNum = parseInt(price);
+                if (priceNum >= 200 && priceNum <= 1000) {
+                  results.push(apartment);
+                  console.log(`✓ Added: ${apartment.price} | ${apartment.size} | ${apartment.title.substring(0, 30)}`);
+                } else {
+                  console.log(`✗ Rejected price out of range: ${price}`);
+                }
               }
             }
           } catch (e) {
@@ -209,37 +234,46 @@ async function scrapeImmobilien() {
         console.log('Error in Strategy 1:', error.message);
       }
       
-      // Strategy 2: Text-based extraction if no structured results
-      if (results.length === 0) {
+      // Strategy 2: Only if Strategy 1 found very few results
+      if (results.length < 2) {
         try {
-          console.log('Strategy 1 failed, trying text-based extraction...');
+          console.log(`Strategy 1 found only ${results.length} results, trying text-based extraction...`);
           
           const pageText = document.body.textContent || '';
           console.log(`Page text length: ${pageText.length}`);
           
-          // Find all price mentions
-          const priceMatches = Array.from(pageText.matchAll(/(\d{2,4}(?:[,.]\d{1,2})?)\s*€/g));
-          const sizeMatches = Array.from(pageText.matchAll(/(\d{1,3}(?:[,.]\d{1,2})?)\s*m²/g));
+          // Look for price-size pairs in text
+          const textLines = pageText.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 20);
           
-          console.log(`Found ${priceMatches.length} prices and ${sizeMatches.length} sizes in text`);
-          
-          // Try to match prices with sizes
-          if (priceMatches.length > 0 && sizeMatches.length > 0) {
-            const minMatches = Math.min(priceMatches.length, sizeMatches.length, 10); // Max 10 apartments
+          for (const line of textLines.slice(0, 50)) { // Limit to first 50 lines
+            const priceMatch = line.match(/(\d{2,4}(?:[,.]\d{1,2})?)\s*€/);
+            const sizeMatch = line.match(/(\d{1,3}(?:[,.]\d{1,2})?)\s*m²/);
             
-            for (let i = 0; i < minMatches; i++) {
-              if (priceMatches[i] && sizeMatches[i]) {
-                const price = parseInt(priceMatches[i][1]);
-                // Only include reasonable rental prices for Berlin
-                if (price >= 200 && price <= 2000) {
+            if (priceMatch && line.includes('Berlin')) {
+              const price = priceMatch[1];
+              const priceNum = parseInt(price);
+              
+              if (priceNum >= 200 && priceNum <= 1000) {
+                const duplicateKey = `${price}-${line.substring(0, 50)}`;
+                
+                if (!found.has(duplicateKey)) {
+                  found.add(duplicateKey);
+                  
                   results.push({
-                    price: priceMatches[i][1] + ' €',
-                    size: sizeMatches[i][1] + ' m²',
+                    price: price + ' €',
+                    size: sizeMatch ? sizeMatch[1] + ' m²' : 'N/A',
                     rooms: 'N/A',
-                    title: `Berlin Apartment ${i + 1}`,
+                    title: line.substring(0, 80),
                     link: 'N/A',
-                    fullText: `Found via text extraction: ${priceMatches[i][0]}, ${sizeMatches[i][0]}`
+                    fullText: line.substring(0, 200),
+                    rawPrice: price,
+                    rawSize: sizeMatch ? sizeMatch[1] : null,
+                    rawRooms: null
                   });
+                  
+                  console.log(`✓ Text extraction added: ${price}€`);
+                  
+                  if (results.length >= 10) break; // Limit results
                 }
               }
             }
@@ -247,6 +281,8 @@ async function scrapeImmobilien() {
         } catch (error) {
           console.log('Error in Strategy 2:', error.message);
         }
+      } else {
+        console.log(`Strategy 1 found ${results.length} results, skipping text extraction`);
       }
       
       // Strategy 3: Look for specific immobilien.de patterns
@@ -277,8 +313,33 @@ async function scrapeImmobilien() {
         }
       }
       
-      console.log(`Total apartments found: ${results.length}`);
-      return results;
+      // Final deduplication and validation
+      const finalResults = [];
+      const seenPriceSize = new Set();
+      
+      results.forEach((apt, i) => {
+        const key = `${apt.rawPrice}-${apt.rawSize || 'nosize'}`;
+        if (!seenPriceSize.has(key)) {
+          seenPriceSize.add(key);
+          
+          // Additional validation
+          const priceNum = parseInt(apt.rawPrice);
+          if (priceNum >= 200 && priceNum <= 1000 && apt.title && apt.title !== 'Berlin Apartment') {
+            finalResults.push(apt);
+          }
+        } else {
+          console.log(`Removing duplicate: ${apt.price} - ${apt.size}`);
+        }
+      });
+      
+      console.log(`=== FINAL RESULTS: ${finalResults.length} apartments ===`);
+      finalResults.forEach((apt, i) => {
+        console.log(`${i + 1}. ${apt.price} | ${apt.size} | ${apt.rooms}`);
+        console.log(`   Title: ${apt.title.substring(0, 50)}...`);
+        console.log(`   Link: ${apt.link !== 'N/A' ? apt.link.substring(0, 50) + '...' : 'N/A'}`);
+      });
+      
+      return finalResults;
     });
 
     await browser.close();
