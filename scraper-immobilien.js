@@ -11,8 +11,10 @@ async function debugScraper() {
   
   const page = await browser.newPage();
   
-  // Set user agent
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+  // FIX: Replace setUserAgent with setExtraHTTPHeaders
+  await page.setExtraHTTPHeaders({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+  });
   
   try {
     console.log('Navigating to ImmobilienScout24...');
@@ -158,8 +160,35 @@ async function debugScraper() {
     fs.writeFileSync('debug-info.json', JSON.stringify(debugInfo, null, 2));
     console.log('Debug info saved to debug-info.json');
     
+    // Return debug info for GitHub Actions
+    const results = {
+      success: true,
+      count: 0, // This is debug mode, no actual apartments
+      timestamp: new Date().toISOString(),
+      source: 'immobilienscout24.de',
+      debug: true,
+      data: []
+    };
+    
+    fs.writeFileSync('results-immobilien.json', JSON.stringify(results, null, 2));
+    console.log('Debug results saved to results-immobilien.json');
+    
+    return results;
+    
   } catch (error) {
     console.error('Debug error:', error);
+    
+    // Save error result
+    const errorResult = {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      source: 'immobilienscout24.de',
+      debug: true
+    };
+    
+    fs.writeFileSync('results-immobilien.json', JSON.stringify(errorResult, null, 2));
+    throw error;
   } finally {
     await browser.close();
   }
@@ -172,4 +201,5 @@ debugScraper()
   })
   .catch(error => {
     console.error('Debug failed:', error);
+    process.exit(1);
   });
