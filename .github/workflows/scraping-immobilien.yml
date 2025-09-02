@@ -1,0 +1,43 @@
+name: Scraping Immobilien
+on:
+  workflow_dispatch:  # Manual trigger
+  repository_dispatch:
+    types: [scrape_immobilien]
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - run: npm install
+      
+      - run: npx playwright install chromium
+      
+      - name: Scrape Immobilien
+        run: node scraper-immobilien.js
+        continue-on-error: true  # Non fallisce se scraper ha errori
+        
+      - name: Update Immobilien Gist
+        if: always()  # Prova upload anche se scraper fallisce
+        run: |
+          # Verifica quale file di risultato esiste
+          if [ -f "results-immobilien.json" ]; then
+            RESULT_FILE="results-immobilien.json"
+          elif [ -f "results.json" ]; then
+            RESULT_FILE="results.json"
+          else
+            echo "Nessun file di risultato trovato"
+            exit 1
+          fi
+          
+          echo "Usando file: $RESULT_FILE"
+          
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"files\":{\"immobilien.json\":{\"content\":\"$(cat $RESULT_FILE | jq -c . | sed 's/\"/\\\"/g')\"}}}" \
+            https://api.github.com/gists/${{ secrets.GIST_ID_IMMOBILIEN }}
