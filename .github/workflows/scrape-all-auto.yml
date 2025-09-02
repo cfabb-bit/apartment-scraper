@@ -15,7 +15,7 @@ jobs:
         id: find-scrapers
         run: |
           # Trova tutti i file scraper-*.js
-          SCRAPERS=$(find . -maxdepth 1 -name "scraper-*.js" -type f | sed 's|./scraper-||' | sed 's|.js||' | sort | jq -R . | jq -s .)
+        SCRAPERS=$(find . -maxdepth 1 -name "scraper-*.js" -type f | sed 's|./scraper-||' | sed 's|.js||' | sort | jq -R . | jq -s . | tr -d '\n')
           echo "scrapers=$SCRAPERS" >> $GITHUB_OUTPUT
           echo "🔍 Scrapers trovati: $SCRAPERS"
 
