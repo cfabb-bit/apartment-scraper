@@ -69,14 +69,45 @@ async function scrapeImmobilien() {
           const sizeMatches = fullText.match(/(\d+(?:[,.]\d+)?)\s*m²/g) || [];
           const roomMatches = fullText.match(/(\d+(?:[,.]\d+)?)\s*Zimmer/g) || [];
           
-          // Get main price
+          // Get main price - IMPROVED LOGIC to find the actual rent price
           let mainPrice = null;
           if (priceMatches.length > 0) {
-            for (const priceMatch of priceMatches) {
-              const price = parseFloat(priceMatch.replace(/[^\d,.]/, '').replace(',', '.'));
-              if (price >= 200 && price <= 2000) {
+            // Strategy 1: Look for price near "Kaltmiete" text
+            const kaltmieteMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*€\s*.*?(?:Kaltmiete|kalt)/i);
+            if (kaltmieteMatch) {
+              const price = parseFloat(kaltmieteMatch[1].replace(',', '.'));
+              if (price >= 150 && price <= 600) {
                 mainPrice = price;
-                break;
+                console.log(`Found Kaltmiete price: ${price}€`);
+              }
+            }
+            
+            // Strategy 2: If no Kaltmiete found, take the lowest reasonable price
+            if (!mainPrice) {
+              const validPrices = [];
+              for (const priceMatch of priceMatches) {
+                const price = parseFloat(priceMatch.replace(/[^\d,.]/, '').replace(',', '.'));
+                if (price >= 200 && price <= 600) { // Reasonable apartment price range
+                  validPrices.push(price);
+                }
+              }
+              
+              if (validPrices.length > 0) {
+                // Take the lowest price (most likely to be base rent)
+                mainPrice = Math.min(...validPrices);
+                console.log(`Selected lowest valid price: ${mainPrice}€ from [${validPrices.join(', ')}]`);
+              }
+            }
+            
+            // Strategy 3: Fallback to first reasonable price
+            if (!mainPrice) {
+              for (const priceMatch of priceMatches) {
+                const price = parseFloat(priceMatch.replace(/[^\d,.]/, '').replace(',', '.'));
+                if (price >= 200 && price <= 600) {
+                  mainPrice = price;
+                  console.log(`Fallback to first reasonable price: ${price}€`);
+                  break;
+                }
               }
             }
           }
