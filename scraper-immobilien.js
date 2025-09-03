@@ -6,199 +6,470 @@ async function scrapeImmobilien() {
   
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox', 
+      '--disable-dev-shm-usage',
+      '--disable-web-security',
+      '--disable-blink-features=AutomationControlled'
+    ]
   });
   
-  const page = await browser.newPage();
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 }
+  });
+  
+  const page = await context.newPage();
   
   try {
     const url = 'https://www.immobilien.de/Wohnen/Suchergebnisse-51797.html?search._digest=true&search._filter=wohnen&search.objektart=wohnung&search.preis_bis=450&search.typ=mieten&search.umkreis=10&search.wo=city%3A6444';
-    
     console.log('Processing URL:', url);
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+    // Navigate with retry mechanism
+    let pageLoaded = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`Navigation attempt ${attempt}/3`);
+        await page.goto(url, { 
+          waitUntil: 'networkidle',
+          timeout: 30000 
+        });
+        pageLoaded = true;
+        break;
+      } catch (error) {
+        console.log(`Navigation attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) throw error;
+        await page.waitForTimeout(5000);
+      }
+    }
+
+    if (!pageLoaded) {
+      throw new Error('Failed to load page after 3 attempts');
+    }
+
     console.log('Page loaded successfully');
-    await page.waitForTimeout(5000);
+
+    // Wait for content to load
+    await page.waitForTimeout(3000);
     
-    // Handle cookies
+    // Handle cookie banner more aggressively
     try {
-      const cookieButton = await page.$('button[class*="cookie"]');
-      if (cookieButton) {
-        console.log('Clicking cookie consent: button[class*="cookie"]');
-        await cookieButton.click();
-        await page.waitForTimeout(2000);
+      const cookieSelectors = [
+        '[data-testid="uc-accept-all-button"]',
+        '[data-testid="accept-all"]',
+        'button[data-testid*="accept"]',
+        'button[id*="accept"]',
+        'button[class*="accept"]',
+        'button[class*="cookie"]',
+        '[class*="cookie"] button',
+        '#cookie-banner button',
+        '.cookie-consent button',
+        '[data-cy*="accept"]'
+      ];
+      
+      let cookieHandled = false;
+      for (const selector of cookieSelectors) {
+        try {
+          const button = await page.$(selector);
+          if (button && await button.isVisible()) {
+            console.log(`Clicking cookie consent: ${selector}`);
+            await button.click();
+            await page.waitForTimeout(2000);
+            cookieHandled = true;
+            break;
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+      
+      if (!cookieHandled) {
+        console.log('No cookie banner found or could not handle');
       }
     } catch (e) {
-      console.log('Cookie handling completed');
+      console.log('Cookie handling error:', e.message);
     }
+
+    // Wait for search results to load and scroll to trigger any lazy loading
+    await page.waitForSelector('a[href*="/wohnen/"]', { timeout: 15000 });
     
+    // Scroll gradually to load all content
     await page.evaluate(async () => {
-      window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          if (totalHeight >= scrollHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100);
+      });
     });
-    
+
+    // Wait for content to settle after scrolling
+    await page.waitForTimeout(3000);
+
     console.log('Page preparation completed, extracting data...');
-    
-    // NEW APPROACH: Focus only on the detailed apartment listings (with _ref parameter)
+
+    // Debug: Check for promotional sections
+    await page.evaluate(() => {
+      const topObjekte = document.querySelector('*[class*="top"], *[class*="premium"], *[class*="highlight"]');
+      if (topObjekte) {
+        console.log('Found promotional section:', topObjekte.className);
+      }
+      
+      const textNodes = document.evaluate("//text()[contains(., 'Top Objekte') or contains(., 'Premium')]", 
+        document, null, XPathResult.ANY_TYPE, null);
+      let node = textNodes.iterateNext();
+      while (node) {
+        console.log('Found promotional text:', node.textContent.trim());
+        node = textNodes.iterateNext();
+      }
+    });
+
+    // Extract apartment data with improved selectors, skipping promotional sections
     const apartments = await page.evaluate(() => {
       const results = [];
+      const processedUrls = new Set();
       
-      // Strategy: Only process links that have the _ref parameter (detailed listings)
-      const detailedLinks = document.querySelectorAll('a[href*="/wohnen/"][href*="_ref"]');
-      console.log(`Found ${detailedLinks.length} detailed apartment listings`);
+      // First, identify and skip promotional sections like "Top Objekte"
+      const skipSections = [
+        '[class*="top-objekt"]',
+        '[class*="premium"]',
+        '[class*="featured"]',
+        '[class*="highlight"]',
+        '[data-testid*="top"]',
+        '[data-testid*="premium"]',
+        '[data-testid*="featured"]'
+      ];
       
-      detailedLinks.forEach((link, index) => {
-        try {
-          // Get the container with all apartment data
-          let container = link;
-          for (let i = 0; i < 8; i++) {
-            container = container.parentElement;
-            if (!container) break;
-            
-            const text = container.textContent || '';
-            // Look for container with comprehensive apartment data
-            if (text.includes('€') && text.includes('Berlin') && 
-                text.includes('m²') && text.includes('Zimmer') && 
-                text.length > 300) {
+      const sectionsToSkip = new Set();
+      skipSections.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          sectionsToSkip.add(el);
+          // Also add parent containers that might contain the promotional section
+          let parent = el.parentElement;
+          for (let i = 0; i < 3; i++) {
+            if (parent && parent.textContent && 
+                (parent.textContent.includes('Top Objekte') || 
+                 parent.textContent.includes('Premium') ||
+                 parent.textContent.includes('Highlight'))) {
+              sectionsToSkip.add(parent);
+            }
+            parent = parent.parentElement;
+            if (!parent) break;
+          }
+        });
+      });
+      
+      // Also skip sections based on text content
+      const allSections = document.querySelectorAll('div, section, article');
+      allSections.forEach(section => {
+        const text = section.textContent || '';
+        if (text.includes('Top Objekte') || text.includes('Premium-Objekte') || 
+            text.includes('Empfohlene Objekte') || text.includes('Highlight')) {
+          // Only skip if this is a relatively small section (likely promotional)
+          if (text.length < 2000) {
+            sectionsToSkip.add(section);
+          }
+        }
+      });
+      
+      console.log(`Identified ${sectionsToSkip.size} promotional sections to skip`);
+      
+      // Look for more specific selectors for apartment listings
+      const selectors = [
+        '[data-testid*="result"]',
+        '[data-cy*="result"]',
+        '.result-list-entry',
+        '.search-result',
+        '[class*="result"]',
+        '[class*="listing"]'
+      ];
+      
+      let containers = [];
+      for (const selector of selectors) {
+        const foundContainers = document.querySelectorAll(selector);
+        // Filter out containers that are within promotional sections
+        const filteredContainers = Array.from(foundContainers).filter(container => {
+          for (const skipSection of sectionsToSkip) {
+            if (skipSection.contains(container)) {
+              return false;
+            }
+          }
+          return true;
+        });
+        
+        if (filteredContainers.length > 0) {
+          containers = filteredContainers;
+          console.log(`Found ${foundContainers.length} total containers, ${containers.length} after filtering promotional content using selector: ${selector}`);
+          break;
+        }
+      }
+      
+      // Fallback: find containers by looking for apartment links and their parent elements
+      if (containers.length === 0) {
+        const apartmentLinks = document.querySelectorAll('a[href*="/wohnen/"]');
+        const parentContainers = new Set();
+        
+        apartmentLinks.forEach(link => {
+          // Skip links that are in promotional sections
+          let isInPromoSection = false;
+          for (const skipSection of sectionsToSkip) {
+            if (skipSection.contains(link)) {
+              isInPromoSection = true;
               break;
             }
           }
           
-          if (!container) {
-            console.log(`No suitable container found for link ${index}`);
+          if (isInPromoSection) {
+            console.log(`Skipping link in promotional section: ${link.href}`);
             return;
           }
           
-          const fullText = container.textContent.replace(/\s+/g, ' ').trim();
-          console.log(`Processing apartment ${index + 1}:`);
-          console.log(`Container text length: ${fullText.length}`);
+          let parent = link.parentElement;
+          for (let i = 0; i < 5; i++) {
+            if (!parent) break;
+            const text = parent.textContent || '';
+            // Look for containers that likely contain full apartment data
+            if (text.includes('€') && text.includes('Berlin') && 
+                text.length > 100 && text.length < 2000) {
+              parentContainers.add(parent);
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        });
+        
+        containers = Array.from(parentContainers);
+        console.log(`Fallback: Found ${containers.length} containers after filtering promotional content`);
+      }
+      
+      // Additional filtering: look for containers that seem to be part of search results
+      containers = Array.from(containers).filter(container => {
+        const text = container.textContent || '';
+        
+        // Skip if container seems to be promotional
+        if (text.includes('Top Objekte') || text.includes('Premium') ||
+            text.includes('Empfohlen') || text.includes('Highlight') ||
+            text.includes('Anzeige') || text.includes('Sponsored')) {
+          console.log('Skipping promotional container');
+          return false;
+        }
+        
+        // Skip containers that seem too large (might be page sections)
+        if (text.length > 3000) {
+          return false;
+        }
+        
+        // Must contain basic apartment info
+        return text.includes('€') && text.includes('Berlin');
+      });
+      
+      containers.forEach((container, index) => {
+        try {
+          const text = container.textContent || '';
           
-          // Extract price - look for "Kaltmiete (netto)" pattern specifically
+          // Find apartment link within this container
+          const link = container.querySelector('a[href*="/wohnen/"]');
+          if (!link || !link.href) return;
+          
+          const href = link.href;
+          
+          // Skip duplicates
+          if (processedUrls.has(href)) return;
+          processedUrls.add(href);
+          
+          // Extract price - be more flexible with patterns
           let price = null;
           let priceText = '';
           
-          const kaltmieteMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*€\s*Kaltmiete\s*\(netto\)/);
-          if (kaltmieteMatch) {
-            price = parseFloat(kaltmieteMatch[1].replace(',', '.'));
-            priceText = Math.round(price) + ' €';
-            console.log(`Found Kaltmiete: ${priceText}`);
+          const pricePatterns = [
+            /(\d+(?:[,.]\d+)?)\s*€\s*(?:Kaltmiete|kalt|Miete)?/i,
+            /(?:Kaltmiete|Miete)[\s:]*(\d+(?:[,.]\d+)?)\s*€/i,
+            /(\d+(?:[,.]\d+)?)\s*€/
+          ];
+          
+          for (const pattern of pricePatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              price = parseFloat(match[1].replace(',', '.'));
+              priceText = match[1] + ' €';
+              break;
+            }
           }
           
-          if (!price || price > 450) {
-            console.log(`Skipping: price ${price}€ not suitable`);
+          // Skip if no price found or price is outside reasonable range
+          if (!price || price < 150 || price > 450) {
+            console.log(`Skipping item ${index}: price ${price} outside range 150-450 (might be promotional)`);
             return;
           }
           
-          // Extract size - look near "Wohnfläche"
+          // Additional check: skip if this seems like a promoted listing
+          const containerText = container.textContent || '';
+          if (containerText.includes('Top Objekt') || containerText.includes('Premium') ||
+              containerText.includes('Empfohlen') || containerText.includes('Highlight') ||
+              containerText.includes('Anzeige') || containerText.includes('Sponsored')) {
+            console.log(`Skipping promotional listing: ${price}€`);
+            return;
+          }
+          
+          // Extract size
           let size = null;
           let sizeText = 'N/A';
-          const sizeMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*m²\s*Wohnfläche/);
-          if (sizeMatch) {
-            size = parseFloat(sizeMatch[1].replace(',', '.'));
-            sizeText = sizeMatch[1].replace(',', '.') + ' m²';
-            console.log(`Found size: ${sizeText}`);
+          const sizePatterns = [
+            /(\d+(?:[,.]\d+)?)\s*m²\s*(?:Wohnfläche)?/i,
+            /(?:Wohnfläche|Fläche)[\s:]*(\d+(?:[,.]\d+)?)\s*m²/i
+          ];
+          
+          for (const pattern of sizePatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              size = parseFloat(match[1].replace(',', '.'));
+              sizeText = match[1].replace(',', '.') + ' m²';
+              break;
+            }
           }
           
-          // Extract rooms - look for standalone number before "Zimmer"
+          // Extract rooms
           let rooms = null;
           let roomsText = 'N/A';
-          const roomMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*Zimmer(?!\s*Wohnung)/);
-          if (roomMatch) {
-            rooms = parseFloat(roomMatch[1].replace(',', '.'));
-            roomsText = roomMatch[1].replace(',', '.') + ' Zimmer';
-            console.log(`Found rooms: ${roomsText}`);
+          const roomPatterns = [
+            /(\d+(?:[,.]\d+)?)\s*Zimmer/i,
+            /(?:Anzahl\s+)?Zimmer[\s:]*(\d+(?:[,.]\d+)?)/i
+          ];
+          
+          for (const pattern of roomPatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              rooms = parseFloat(match[1].replace(',', '.'));
+              roomsText = match[1].replace(',', '.') + ' Zimmer';
+              break;
+            }
           }
           
-          // Extract title from link text - clean approach
+          // Extract title - improved logic
           let title = '';
-          const linkText = link.textContent.replace(/\s+/g, ' ').trim();
           
-          // Remove leading numbers and get the meaningful part
-          const titleMatch = linkText.match(/^\d+\s+(.+?)(?:\s+Wohnung|\s+Balkon|\s+\d{5}|\s*$)/);
-          if (titleMatch) {
-            title = titleMatch[1].trim();
-          } else {
-            // Fallback: clean the whole link text
-            title = linkText.replace(/^\d+\s*/, '').trim();
+          // First try to get title from link text or nearby headings
+          const linkText = (link.textContent || '').trim();
+          if (linkText && linkText.length > 5 && linkText.length < 100 && 
+              !linkText.includes('€') && !linkText.includes('m²')) {
+            title = linkText;
           }
           
-          // Clean title
-          title = title
-            .replace(/\s+/g, ' ')
-            .replace(/[^\w\s\-()+äöüÄÖÜß!]/g, '')
-            .substring(0, 60)
-            .trim();
-          
-          if (!title || title.length < 3) {
-            title = `Apartment in Berlin`;
+          // Try heading elements within container
+          if (!title) {
+            const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6, [class*="title"], [class*="heading"]');
+            for (const heading of headings) {
+              const headingText = (heading.textContent || '').trim();
+              if (headingText && headingText.length > 5 && headingText.length < 100 &&
+                  !headingText.includes('€') && !headingText.includes('m²')) {
+                title = headingText;
+                break;
+              }
+            }
           }
           
-          // Extract location
-          let location = '';
-          const locationMatch = fullText.match(/(\d{5}\s+Berlin)/);
-          if (locationMatch) {
-            location = locationMatch[1];
+          // Fallback: extract descriptive text from container
+          if (!title) {
+            const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0);
+            
+            for (const line of lines) {
+              if (line.length > 10 && line.length < 150 && 
+                  !line.includes('€') && !line.includes('m²') && 
+                  !line.includes('Zimmer') && !line.includes('Miete') &&
+                  (line.includes('Berlin') || line.includes('Wohnung') || 
+                   line.includes('Günstiges') || line.includes('Senioren') ||
+                   line.includes('Neubau') || line.includes('zentral'))) {
+                title = line;
+                break;
+              }
+            }
           }
           
-          // Build description
-          let description = title;
-          if (location) {
-            description += ` in ${location}`;
+          // Final fallback
+          if (!title) {
+            // Look for postal code + Berlin pattern
+            const locationMatch = text.match(/(\d{5}\s+Berlin[^€\n]*)/);
+            if (locationMatch) {
+              title = locationMatch[1];
+            } else {
+              title = `${priceText} Apartment in Berlin`;
+            }
           }
-          if (size) {
-            description += `, ${sizeText}`;
-          }
-          if (rooms) {
-            description += `, ${roomsText}`;
-          }
+          
+          // Clean up title
+          title = title.replace(/\s+/g, ' ').trim().substring(0, 100);
           
           const apartment = {
             price: priceText,
             size: sizeText,
             rooms: roomsText,
             title: title,
-            link: link.href,
-            location: location,
-            description: description,
+            link: href,
             rawPrice: price,
             rawSize: size,
-            rawRooms: rooms
+            rawRooms: rooms,
+            containerText: text.substring(0, 300).replace(/\s+/g, ' ').trim()
           };
           
           results.push(apartment);
-          console.log(`✓ Added: ${priceText} | ${sizeText} | ${roomsText} - ${title}`);
+          console.log(`Extracted: ${priceText} | ${sizeText} | ${roomsText} - ${title}`);
           
         } catch (error) {
-          console.error(`Error processing apartment ${index}:`, error.message);
+          console.error(`Error processing container ${index}:`, error.message);
         }
       });
       
-      // Remove duplicates by link (base URL without parameters)
-      const uniqueResults = results.filter((apt, index, self) => {
-        const baseUrl = apt.link.split('?')[0];
-        return index === self.findIndex(a => a.link.split('?')[0] === baseUrl);
-      });
+      // Remove duplicates by link and sort by price
+      const uniqueResults = results.filter((apt, index, self) => 
+        index === self.findIndex(a => a.link === apt.link)
+      );
       
-      console.log(`Final count after deduplication: ${uniqueResults.length}`);
-      return uniqueResults.sort((a, b) => a.rawPrice - b.rawPrice);
+      uniqueResults.sort((a, b) => a.rawPrice - b.rawPrice);
+      
+      return uniqueResults;
     });
-    
+
     await browser.close();
     
     console.log(`Successfully extracted ${apartments.length} apartments from Immobilien.de`);
     
+    if (apartments.length === 0) {
+      console.log('No apartments found - this might indicate:');
+      console.log('1. The search criteria are too restrictive');
+      console.log('2. The website structure has changed');
+      console.log('3. Anti-bot measures are blocking the scraper');
+      console.log('4. The search URL parameters are incorrect');
+    }
+    
+    // Log results for debugging
     apartments.forEach((apt, index) => {
       console.log(`${index + 1}. ${apt.price} | ${apt.size} | ${apt.rooms}`);
       console.log(`   Title: ${apt.title}`);
-      console.log(`   Location: ${apt.location}`);
       console.log(`   Link: ${apt.link}`);
-      console.log('');
     });
     
+    // Format results for consistent output
     const results = {
       success: true,
       count: apartments.length,
       timestamp: new Date().toISOString(),
       source: 'immobilien.de',
+      searchCriteria: {
+        maxPrice: 450,
+        location: 'Berlin',
+        radius: '10km',
+        type: 'rent'
+      },
       data: apartments.map((apt, index) => ({
         id: `immobilien_${Date.now()}_${index}`,
         price: apt.price,
@@ -206,9 +477,14 @@ async function scrapeImmobilien() {
         rooms: apt.rooms,
         title: apt.title,
         link: apt.link,
-        description: apt.description,
+        description: apt.containerText || 'No description available',
         source: 'immobilien.de',
-        scrapedAt: new Date().toISOString()
+        scrapedAt: new Date().toISOString(),
+        rawData: {
+          price: apt.rawPrice,
+          size: apt.rawSize,
+          rooms: apt.rawRooms
+        }
       }))
     };
     
@@ -216,10 +492,11 @@ async function scrapeImmobilien() {
     console.log('Results saved to results-immobilien.json');
     
     return results;
-    
+
   } catch (error) {
     await browser.close();
     console.error('Critical error during scraping:', error.message);
+    console.error('Stack trace:', error.stack);
     
     const errorResult = {
       success: false,
@@ -235,15 +512,16 @@ async function scrapeImmobilien() {
   }
 }
 
+// Run the scraper
 if (require.main === module) {
   scrapeImmobilien()
     .then((results) => {
       if (results.success) {
-        console.log('\n=== SCRAPING COMPLETED SUCCESSFULLY ===');
+        console.log(`\n=== SCRAPING COMPLETED SUCCESSFULLY ===`);
         console.log(`Apartments found: ${results.count}`);
         console.log(`Timestamp: ${results.timestamp}`);
       } else {
-        console.log('\n=== SCRAPING FAILED ===');
+        console.log(`\n=== SCRAPING FAILED ===`);
         console.log(`Error: ${results.error}`);
         process.exit(1);
       }
