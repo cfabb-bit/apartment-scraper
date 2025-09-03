@@ -148,23 +148,89 @@ async function scrapeImmobilien() {
     });
     console.log(`After removing Top Objekte: ${nonPromotional.length}`);
     
-    // Convert to final format
+          // Convert to final format with flexible data cleaning
     const finalApartments = nonPromotional.map((apt, index) => {
       const price = apt.mainPrice + ' €';
       const size = apt.allSizes.length > 0 ? apt.allSizes[0].replace(',', '.') : 'N/A';
       const rooms = apt.allRooms.length > 0 ? apt.allRooms[0].replace(',', '.') : 'N/A';
       
-      let title = apt.linkText;
-      if (!title || title.length < 5) {
-        const locationMatch = apt.containerText.match(/(\d{5}\s+Berlin[^€\n]*)/);
-        if (locationMatch) {
-          title = locationMatch[1];
-        } else {
-          title = `${price} Apartment in Berlin`;
+      // Flexible title extraction - focus on cleaning, not content filtering
+      let title = '';
+      
+      // First try: clean the link text (most reliable source)
+      if (apt.linkText && apt.linkText.trim()) {
+        title = apt.linkText
+          .replace(/^\d+\s*/, '')           // Remove leading numbers only
+          .replace(/[\n\r\t]/g, ' ')        // Replace line breaks with spaces
+          .replace(/\s+/g, ' ')             // Multiple spaces to single
+          .trim();
+      }
+      
+      // Second try: if link text is too short, look for the first meaningful text chunk
+      if (!title || title.length < 10) {
+        const textChunks = apt.containerText
+          .replace(/[\n\r\t]/g, ' ')        // Clean line breaks
+          .replace(/\s+/g, ' ')             // Clean spaces
+          .split(' ')
+          .filter(chunk => chunk.length > 0);
+        
+        // Find the first chunk that looks like a title (not a number, price, or single word)
+        let titleStart = -1;
+        for (let i = 0; i < textChunks.length; i++) {
+          const chunk = textChunks[i];
+          // Skip numbers, prices, single characters
+          if (!/^\d+$/.test(chunk) && !chunk.includes('€') && chunk.length > 2) {
+            titleStart = i;
+            break;
+          }
+        }
+        
+        if (titleStart >= 0) {
+          // Take up to 8 words from the title start
+          title = textChunks.slice(titleStart, titleStart + 8).join(' ');
         }
       }
       
-      title = title.substring(0, 100).trim();
+      // Fallback: location-based title
+      if (!title || title.length < 5) {
+        const locationMatch = apt.containerText.match(/(\d{5}\s*Berlin)/);
+        if (locationMatch) {
+          title = locationMatch[1];
+        } else {
+          title = `Apartment ${price}`;
+        }
+      }
+      
+      // Final title cleaning - keep all content, just clean formatting
+      title = title
+        .substring(0, 100)                  // Reasonable length limit
+        .replace(/[\n\r\t]/g, ' ')          // Clean line breaks
+        .replace(/\s+/g, ' ')               // Clean spaces
+        .trim();
+      
+      // Flexible description - extract first meaningful sentences
+      let description = apt.containerText
+        .replace(/[\n\r\t]/g, ' ')          // Clean line breaks
+        .replace(/\s+/g, ' ')               // Clean spaces
+        .trim();
+      
+      // Try to find sentence boundaries and take first meaningful content
+      const sentences = description.split(/[.!?]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 15)         // Reasonable sentence length
+        .filter(s => !s.match(/^\d+$/));    // Not just numbers
+      
+      if (sentences.length > 0) {
+        description = sentences[0];
+      }
+      
+      // Limit description length
+      description = description.substring(0, 200).trim();
+      
+      // Ensure we have some description
+      if (!description || description.length < 10) {
+        description = `${title} - ${size}, ${rooms} in Berlin`;
+      }
       
       return {
         id: `immobilien_${Date.now()}_${index}`,
@@ -173,7 +239,7 @@ async function scrapeImmobilien() {
         rooms: rooms,
         title: title,
         link: apt.link,
-        description: apt.containerText.substring(0, 200).replace(/\s+/g, ' ').trim(),
+        description: description,
         source: 'immobilien.de',
         scrapedAt: new Date().toISOString()
       };
