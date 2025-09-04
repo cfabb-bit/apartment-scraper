@@ -12,7 +12,8 @@ async function scrapeImmowelt() {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
     
-   const context = await browser.newContext({
+    // Create page with user agent context
+    const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       locale: 'de-DE',
       extraHTTPHeaders: {
@@ -22,6 +23,9 @@ async function scrapeImmowelt() {
     });
     
     const page = await context.newPage();
+    
+    const url = 'https://www.immowelt.de/classified-search?distributionTypes=Rent&estateTypes=House,Apartment&locations=AD08DE8634&locationsInBuildingExcluded=Groundfloor&priceMax=450&projectTypes=Stock,Flatsharing&order=PriceDesc';
+    
     console.log('Processing URL:', url);
     
     // Navigate with extended timeout
