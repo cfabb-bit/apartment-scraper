@@ -97,6 +97,138 @@ async function scrapeImmowelt() {
       foundLinks.forEach(link => {
         const href = link.href;
         
+        // Only process immowelt apartment links
+        if (!href.includes('immowelt')) return;
+        
+        // Skip duplicates
+        if (processedUrls.has(href)) return;
+        processedUrls.add(href);
+        
+        // Find parent container with apartment data
+        let container = link;
+        for (let i = 0; i < 8; i++) {
+          container = container.parentElement;
+          if (!container) break;
+          
+          const text = container.textContent;
+          if (text && text.includes('€') && text.length > 100) {
+            break;
+          }
+        }
+        
+        if (!container) return;
+        
+        const fullText = container.textContent.replace(/\s+/g, ' ').trim();
+        
+        // Extract price
+        let price = null;
+        const priceMatches = fullText.match(/(\d{2,4})\s*€|€\s*(\d{2,4})|(\d{2,4})\s*EUR/g);
+        if (priceMatches) {
+          for (const match of priceMatches) {
+            const p = parseInt(match.replace(/[€EUR\s]/g, ''));
+            if (p >= 200 && p <= 500) {
+              price = p;
+              break;
+            }
+          }
+        }
+        
+        if (!price) {
+          // Try different price pattern
+          const altPriceMatch = fullText.match(/Warmmiete:?\s*(\d{2,4})/i);
+          if (altPriceMatch) {
+            price = parseInt(altPriceMatch[1]);
+          }
+        }
+        
+        if (!price) return;
+        
+        // Extract size
+        let size = null;
+        const sizeMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*m²/);
+        if (sizeMatch) {
+          size = parseFloat(sizeMatch[1].replace(',', '.'));
+        }
+        
+        // Extract rooms
+        let rooms = null;
+        const roomMatch = fullText.match(/(\d+(?:[,.]?\d+)?)\s*Zimmer/);
+        if (roomMatch) {
+          rooms = parseFloat(roomMatch[1].replace(',', '.'));
+        }
+        
+        // Extract title from link or nearby elements
+        let title = '';
+        
+        // Try link text first
+        if (link.textContent && link.textContent.trim().length > 5) {
+          title = link.textContent.trim();
+        }
+        
+        // Try nearby headings
+        if (!title || title.length < 10) {
+          const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6, [class*="title"], [class*="headline"]');
+          for (const h of headings) {
+            const headingText = h.textContent.trim();
+            if (headingText && headingText.length > 5 && headingText.length < 100) {
+              title = headingText;
+              break;
+            }
+          }
+        }
+        
+        // Try alt/title attributes
+        if (!title || title.length < 10) {
+          const img = container.querySelector('img[alt], img[title]');
+          if (img && (img.alt || img.title)) {
+            title = img.alt || img.title;
+          }
+        }
+        
+        // Clean and validate title
+        title = title.replace(/\s+/g, ' ').substring(0, 100).trim();
+        if (!title || title.length < 5) {
+          title = `Wohnung ${price}€`;
+        }
+        
+        // Extract location/address
+        let location = 'Berlin';
+        const locationPatterns = [
+          /Berlin[,\s]+([^,\n]{5,30})/,
+          /(\d{5}\s+Berlin[^,\n]{0,20})/,
+          /([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)*),?\s+Berlin/
+        ];
+        
+        for (const pattern of locationPatterns) {
+          const locationMatch = fullText.match(pattern);
+          if (locationMatch) {
+            location = locationMatch[1] || locationMatch[0];
+            break;
+          }
+        }
+        
+        const apartment = {
+          price: price + ' €',
+          size: size ? size + ' m²' : 'N/A',
+          rooms: rooms ? rooms + ' Zimmer' : 'N/A',
+          title: title,
+          link: href,
+          location: location
+        };
+        
+        results.push(apartment);
+        console.log(`Added: ${apartment.price} - ${apartment.title}`);
+      });
+      
+      // Remove duplicates and sort
+      const uniqueResults = results.filter((apt, index, self) => 
+        index === self.findIndex(a => a.link === apt.link)
+      );
+      
+      return uniqueResults.sort((a, b) => parseInt(a.price) - parseInt(b.price));
+    });
+        const href = link.href;
+        
         // Only process immowelt expose links
         if (!href.includes('/expose/') && !href.includes('immowelt.de')) return;
         
