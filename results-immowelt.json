@@ -1,7 +1,239 @@
 {
   "success": true,
-  "count": 0,
-  "timestamp": "2025-09-04T10:02:08.465Z",
+  "count": 21,
+  "timestamp": "2025-09-04T10:32:12.182Z",
   "source": "immowelt.de",
-  "data": []
+  "data": [
+    {
+      "id": "immowelt_1756981932182_0",
+      "price": "309 €",
+      "size": "22.8 m²",
+      "rooms": "1 Zimmer",
+      "title": "Wohnung zur Miete - Berlin-Kreuzberg - 309 € - 1 Zimmer, 22,8 m², 2. Geschoss, frei ab 01.11.2025",
+      "link": "https://www.immowelt.de/expose/0dcbb534-5029-4a3e-83d8-70490c4acc80?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Wohnung zur Miete - Berlin-Kreuzberg - 309 € - 1 Zimmer, 22,8 m², 2. Geschoss, frei ab 01.11.2025 in Kreuzberg (10997)Die Wohnung befindet si - 22.8 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_1",
+      "price": "315 €",
+      "size": "13.8 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 315 € - 1 Zimmer, 13,8 m², EG, frei ab 05.09.2025",
+      "link": "https://www.immowelt.de/expose/602249e5-16bf-46ea-b065-bae9cd28b953?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Studio zur Miete - Berlin - 315 € - 1 Zimmer, 13,8 m², EG, frei ab 05.09.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 13.8 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_2",
+      "price": "319 €",
+      "size": "11 m²",
+      "rooms": "1 Zimmer",
+      "title": "Wohnung zur Miete - Potsdam - 319 € - 1 Zimmer, 11 m², frei ab sofort",
+      "link": "https://www.immowelt.de/expose/57839b40-4aa7-44e2-93c7-d842d0a7874b?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Wohnung zur Miete - Potsdam - 319 € - 1 Zimmer, 11 m², frei ab sofort in Berlin - 11 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_3",
+      "price": "322 €",
+      "size": "16 m²",
+      "rooms": "N/A",
+      "title": "WG-Zimmer zur Miete - Bernau - 322 € - 16 m², 3. Geschoss, frei ab sofort",
+      "link": "https://www.immowelt.de/expose/0610c638-3a24-4b62-8f41-b6f321defe1c?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "WG-Zimmer zur Miete - Bernau - 322 € - 16 m², 3. Geschoss, frei ab sofort in Berlin - 16 m², N/A",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_4",
+      "price": "352 €",
+      "size": "31.1 m²",
+      "rooms": "1 Zimmer",
+      "title": "Wohnung zur Miete - Berlin - 352 € - 1 Zimmer, 31,1 m², frei ab sofort",
+      "link": "https://www.immowelt.de/expose/00932c57-aad1-4521-8638-6e971ff2831a?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Wohnung zur Miete - Berlin - 352 € - 1 Zimmer, 31,1 m², frei ab sofort in (12353) - 31.1 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_5",
+      "price": "380 €",
+      "size": "53 m²",
+      "rooms": "2 Zimmer",
+      "title": "Studio zur Miete - Berlin - 380 € - 2 Zimmer, 53 m², frei ab sofort",
+      "link": "https://www.immowelt.de/expose/fb9486e7-3a4c-467c-84cb-3fdd5455ddf2?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 380 € - 2 Zimmer, 53 m², frei ab sofort in (12689) - 53 m², 2 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_6",
+      "price": "399 €",
+      "size": "53.1 m²",
+      "rooms": "2 Zimmer",
+      "title": "Studio zur Miete - Berlin - 399 € - 2 Zimmer, 53,1 m², frei ab sofort",
+      "link": "https://www.immowelt.de/expose/cafa26c2-15c7-47d8-a67d-51c2ef2f22ef?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Studio zur Miete - Berlin - 399 € - 2 Zimmer, 53,1 m², frei ab sofort in (13585) - 53.1 m², 2 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_7",
+      "price": "404 €",
+      "size": "38.1 m²",
+      "rooms": "1 Zimmer",
+      "title": "Wohnung zur Miete - Berlin - 404 € - 1 Zimmer, 38,1 m², 2. Geschoss, frei ab 10.09.2025",
+      "link": "https://www.immowelt.de/expose/1522542a-3be8-4fbe-bf83-497f75bd8e48?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Wohnung zur Miete - Berlin - 404 € - 1 Zimmer, 38,1 m², 2. Geschoss, frei ab 10.09.2025 in (13627)In dieser Einzimmerwohnung wurde - 38.1 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_8",
+      "price": "410 €",
+      "size": "17.6 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 410 € - 1 Zimmer, 17,6 m², 1. Geschoss, frei ab 01.11.2025",
+      "link": "https://www.immowelt.de/expose/10b983bf-98a6-43a7-8fb4-8f24908da1ce?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Studio zur Miete - Berlin - 410 € - 1 Zimmer, 17,6 m², 1. Geschoss, frei ab 01.11.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 17.6 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_9",
+      "price": "416 €",
+      "size": "18.4 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 416 € - 1 Zimmer, 18,4 m², 2. Geschoss, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/789bd670-5de0-48aa-803f-423f9198e247?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 416 € - 1 Zimmer, 18,4 m², 2. Geschoss, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 18.4 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_10",
+      "price": "420 €",
+      "size": "10 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 10 m², 5. Geschoss, frei ab 05.09.2025",
+      "link": "https://www.immowelt.de/expose/64c6a428-0468-43b1-b436-f16bc48b2cac?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 10 m², 5. Geschoss, frei ab 05.09.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 10 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_11",
+      "price": "420 €",
+      "size": "11.9 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 11,9 m², EG, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/df6b01f4-ec9e-422f-9406-52c67672eedd?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 11,9 m², EG, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 11.9 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_12",
+      "price": "420 €",
+      "size": "11 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 11 m², 2. Geschoss, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/222e5c78-97ce-4e9d-8118-e003db325a51?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 420 € - 1 Zimmer, 11 m², 2. Geschoss, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 11 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_13",
+      "price": "420 €",
+      "size": "18 m²",
+      "rooms": "N/A",
+      "title": "WG-Zimmer zur Miete - Berlin - 420 € - 18 m²",
+      "link": "https://www.immowelt.de/expose/ec9a7cbd-5d17-442b-a752-7030e16b4455?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "WG-Zimmer zur Miete - Berlin - 420 € - 18 m² in (10963) - 18 m², N/A",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_14",
+      "price": "421 €",
+      "size": "18.5 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 421 € - 1 Zimmer, 18,5 m², 5. Geschoss, frei ab 05.09.2025",
+      "link": "https://www.immowelt.de/expose/5c5dfb1a-13ce-4ccc-b737-cf0b59e3660f?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 421 € - 1 Zimmer, 18,5 m², 5. Geschoss, frei ab 05.09.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 18.5 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_15",
+      "price": "422 €",
+      "size": "16.9 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 422 € - 1 Zimmer, 16,9 m², 2. Geschoss, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/d628b88d-6e69-4302-9038-cf7a85088ab4?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 422 € - 1 Zimmer, 16,9 m², 2. Geschoss, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 16.9 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_16",
+      "price": "434 €",
+      "size": "17.7 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 434 € - 1 Zimmer, 17,7 m², 1. Geschoss, frei ab 01.11.2025",
+      "link": "https://www.immowelt.de/expose/766d9b3e-de37-41fd-afd6-ec297835a764?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 434 € - 1 Zimmer, 17,7 m², 1. Geschoss, frei ab 01.11.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 17.7 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_17",
+      "price": "439 €",
+      "size": "62.5 m²",
+      "rooms": "2 Zimmer",
+      "title": "Wohnung zur Miete - Berlin - 439 € - 2 Zimmer, 62,5 m², 4. Geschoss, frei ab sofort",
+      "link": "https://www.immowelt.de/expose/0891a0c9-ac4f-41ce-89af-fd1cb1184fc1?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Wohnung zur Miete - Berlin - 439 € - 2 Zimmer, 62,5 m², 4. Geschoss, frei ab sofort in (13593)Die gut geschnittene Zweizimmerwo - 62.5 m², 2 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_18",
+      "price": "450 €",
+      "size": "10.5 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 450 € - 1 Zimmer, 10,5 m², EG, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/772679ff-f13f-4b71-bbad-9bd7208d9ea8?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_L",
+      "description": "Studio zur Miete - Berlin - 450 € - 1 Zimmer, 10,5 m², EG, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 10.5 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_19",
+      "price": "450 €",
+      "size": "11 m²",
+      "rooms": "1 Zimmer",
+      "title": "Studio zur Miete - Berlin - 450 € - 1 Zimmer, 11 m², 2. Geschoss, frei ab 01.10.2025",
+      "link": "https://www.immowelt.de/expose/ed95cecb-f398-4c58-beed-255362d5e0cb?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Studio zur Miete - Berlin - 450 € - 1 Zimmer, 11 m², 2. Geschoss, frei ab 01.10.2025 in (12459)Kurzbeschreibung Der Mietpreis is - 11 m², 1 Zimmer",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    },
+    {
+      "id": "immowelt_1756981932182_20",
+      "price": "450 €",
+      "size": "50 m²",
+      "rooms": "N/A",
+      "title": "Einfamilienhaus zur Miete - Petershagen/Eggersdorf - 450 € - 50 m², 865 m² Grundstück",
+      "link": "https://www.immowelt.de/expose/ac49518d-857a-4a06-8927-f37750b08994?ln=classified_search_results&serp_view=list&search=distributionTypes%3DRent%26estateTypes%3DHouse%2CApartment%26locations%3DAD08DE8634%26locationsInBuildingExcluded%3DGroundfloor%26priceMax%3D450%26projectTypes%3DStock%2CFlatsharing%26order%3DPriceDesc&m=classified_search_results_classified_classified_detail_M",
+      "description": "Einfamilienhaus zur Miete - Petershagen/Eggersdorf - 450 € - 50 m², 865 m² Grundstück in Berlin - 50 m², N/A",
+      "source": "immowelt.de",
+      "scrapedAt": "2025-09-04T10:32:12.182Z"
+    }
+  ]
 }
