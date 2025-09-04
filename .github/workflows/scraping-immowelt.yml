@@ -1,1 +1,35 @@
+name: Scrape Immowelt
 
+on:
+  workflow_dispatch:  # Solo trigger manuale da n8n
+
+jobs:
+  scrape-immowelt:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Install Playwright browsers
+      run: npx playwright install chromium
+    
+    - name: Run Immowelt scraper
+      run: node scraper-immowelt.js
+    
+    - name: Commit and push results
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action Bot"
+        git add results-immowelt.json
+        git commit -m "Update Immowelt results" || exit 0
+        git push
