@@ -39,14 +39,14 @@ async function scrapeImmowelt() {
       const results = [];
       
       // Find all apartment links first
-      const links = document.querySelectorAll('a[href*="/expose/"]');
+      let links = Array.from(document.querySelectorAll('a[href*="/expose/"]'));
       console.log(`Found ${links.length} apartment links`);
       
       if (links.length === 0) {
         console.log('No expose links found, trying alternative selectors');
-        const altLinks = document.querySelectorAll('a[href*="immowelt.de"], [data-testid*="property"] a, .property-item a, .result-item a');
+        const altLinks = Array.from(document.querySelectorAll('a[href*="immowelt.de"], [data-testid*="property"] a, .property-item a, .result-item a'));
         console.log(`Found ${altLinks.length} alternative links`);
-        links.push(...altLinks);
+        links = links.concat(altLinks);
       }
       
       const processedUrls = new Set();
