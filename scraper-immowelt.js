@@ -108,37 +108,6 @@ async function scrapeImmowelt() {
   }
 }
 
-// Update GitHub Gist
-try {
-  const gistId = '56c7546eab4e32a2080c04d13be74b06';
-  const filename = 'immowelt.json';
-  const token = process.env.GITHUB_TOKEN; // O come hai configurato il token
-  
-  const gistUpdate = await fetch(`https://api.github.com/gists/${gistId}`, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `token ${token}`,
-      'Accept': 'application/vnd.github.v3+json'
-    },
-    body: JSON.stringify({
-      files: {
-        [filename]: {
-          content: JSON.stringify(results, null, 2)
-        }
-      }
-    })
-  });
-  
-  if (gistUpdate.ok) {
-    console.log('Gist updated successfully');
-  } else {
-    console.log('Failed to update gist:', gistUpdate.status);
-  }
-} catch (error) {
-  console.error('Error updating gist:', error.message);
-}
-
-
 
 // Handle cookie consent with multiple strategies
 async function handleCookieConsent(page) {
