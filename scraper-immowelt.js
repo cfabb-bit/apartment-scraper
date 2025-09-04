@@ -227,6 +227,8 @@ async function scrapeImmowelt() {
       
       return uniqueResults.sort((a, b) => parseInt(a.price) - parseInt(b.price));
     });
+    
+    await browser.close();
         const href = link.href;
         
         // Only process immowelt expose links
