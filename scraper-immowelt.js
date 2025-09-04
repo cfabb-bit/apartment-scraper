@@ -94,7 +94,7 @@ async function scrapeImmowelt() {
       
       const processedUrls = new Set();
       
-      links.forEach(link => {
+      foundLinks.forEach(link => {
         const href = link.href;
         
         // Only process immowelt expose links
