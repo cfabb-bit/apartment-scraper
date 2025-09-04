@@ -1,34 +1,31 @@
 name: Scrape Immowelt
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger
+  repository_dispatch:
+    types: [scrape_immowelt]
 
 jobs:
-  scrape-immowelt:
+  scrape:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-    
-    - name: Install dependencies
-      run: npm install
-    
-    - name: Install Playwright browsers
-      run: npx playwright install chromium
-    
-    - name: Run Immowelt scraper
-      run: node scraper-immowelt.js
-    
-    - name: Commit and push results
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action Bot"
-        git add results-immowelt.json
-        git commit -m "Update Immowelt results" || exit 0
-        git push
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - run: npm install
+      
+      - run: npx playwright install chromium
+      
+      - name: Scrape Immowelt
+        run: node scraper-immowelt.js
+        
+      - name: Update Immowelt Gist
+        run: |
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"files\":{\"immowelt.json\":{\"content\":\"$(cat results-immowelt.json | jq -c . | sed 's/\"/\\\"/g')\"}}}" \
+            https://api.github.com/gists/56c7546eab4e32a2080c04d13be74b06
