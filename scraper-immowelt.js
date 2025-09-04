@@ -38,16 +38,59 @@ async function scrapeImmowelt() {
     const apartments = await page.evaluate(() => {
       const results = [];
       
-      // Find all apartment links first
-      let links = Array.from(document.querySelectorAll('a[href*="/expose/"]'));
-      console.log(`Found ${links.length} apartment links`);
+      // Debug: Stampa tutte le possibili strutture
+      console.log('=== DEBUG: Analyzing page structure ===');
       
-      if (links.length === 0) {
-        console.log('No expose links found, trying alternative selectors');
-        const altLinks = Array.from(document.querySelectorAll('a[href*="immowelt.de"], [data-testid*="property"] a, .property-item a, .result-item a'));
-        console.log(`Found ${altLinks.length} alternative links`);
-        links = links.concat(altLinks);
+      // Test vari selettori per i link
+      const linkSelectors = [
+        'a[href*="/expose/"]',
+        'a[href*="immowelt"]',
+        'a[href*="/classified/"]', 
+        'a[href*="/property/"]',
+        '[data-testid*="property"] a',
+        '[data-testid*="object"] a',
+        '.property-item a',
+        '.result-item a',
+        '.listitem a',
+        '.estate-object a'
+      ];
+      
+      let links = [];
+      for (const selector of linkSelectors) {
+        const found = Array.from(document.querySelectorAll(selector));
+        console.log(`Selector "${selector}": ${found.length} links`);
+        if (found.length > 0) {
+          links = found;
+          console.log(`Using selector: ${selector}`);
+          break;
+        }
       }
+      
+      // Se ancora nessun link, prova un approccio più generale
+      if (links.length === 0) {
+        console.log('No specific links found, trying all links...');
+        const allLinks = Array.from(document.querySelectorAll('a[href]'));
+        console.log(`Total links on page: ${allLinks.length}`);
+        
+        // Filtra per URL che sembrano appartamenti
+        links = allLinks.filter(link => {
+          const href = link.href.toLowerCase();
+          return href.includes('immowelt') && 
+                 (href.includes('expose') || 
+                  href.includes('property') || 
+                  href.includes('classified') ||
+                  href.includes('wohnung') ||
+                  href.includes('apartment'));
+        });
+        console.log(`Filtered apartment-like links: ${links.length}`);
+        
+        // Mostra alcuni esempi
+        links.slice(0, 5).forEach((link, i) => {
+          console.log(`Example ${i + 1}: ${link.href}`);
+        });
+      }
+      
+      console.log(`Final links to process: ${links.length}`);
       
       const processedUrls = new Set();
       
